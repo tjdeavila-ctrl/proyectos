@@ -1,0 +1,1449 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard Portafolio TI 2026 — Comfenalco Cartagena</title>
+  <link rel="icon" type="image/svg+xml" href="logo 2 (1).svg" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <!-- Chart.js Datalabels Plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+
+  <!-- Datos sincronizados desde proyectos.xlsx -->
+  <script src="proyectos_xlsx_data.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#2563eb', light: '#3b82f6', dark: '#1d4ed8' }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; }
+    .tab-btn.active { border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: 700; }
+    .tab-btn { transition: all .2s; }
+    .accordion-content { max-height: 0; overflow: hidden; transition: max-height .4s ease; }
+    .accordion-content.open { max-height: 9999px; }
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 9999px; font-size: .72rem; font-weight: 600; letter-spacing: .03em; }
+    canvas { max-height: 320px; }
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background:#94a3b8; border-radius:4px; }
+    .card-project { transition: box-shadow .2s; }
+    .card-project:hover { box-shadow: 0 4px 24px 0 rgba(37,99,235,.13); }
+    #importModal { display:none; }
+    #importModal.show { display:flex; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<!-- ═══════════════════ HEADER ═══════════════════ -->
+<header class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shadow-xl sticky top-0 z-40">
+  <div class="flex items-center gap-3">
+    <div class="bg-white rounded-lg p-1.5 shadow-sm">
+      <img src="logoComfenalcoHorizontal 1.svg" alt="Logo Comfenalco Horizontal" class="h-8 w-auto object-contain" />
+    </div>
+    <div>
+      <h1 class="text-lg font-bold leading-tight tracking-wide">Portafolio Proyectos e innovación 2026</h1>
+      <p class="text-slate-400 text-xs">Comfenalco Cartagena — Panel de Control</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-3">
+    <span id="headerCount" class="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full"></span>
+    <button onclick="openImportModal()" class="bg-green-600 hover:bg-green-500 text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-2 transition">
+      <i class="fa-solid fa-file-excel"></i> Importar Excel
+    </button>
+    <button onclick="exportToExcel()" class="bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-2 transition">
+      <i class="fa-solid fa-download"></i> Exportar
+    </button>
+    <div class="text-slate-400 text-xs hidden md:block">
+      <i class="fa-regular fa-calendar mr-1"></i>
+      <span id="currentDate"></span>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════ TABS ═══════════════════ -->
+<nav class="bg-white border-b border-slate-200 sticky top-[69px] z-30 shadow-sm">
+  <div class="max-w-screen-2xl mx-auto flex gap-0 px-6">
+    <button class="tab-btn active px-6 py-3 text-sm flex items-center gap-2" onclick="switchTab('tab1', this)">
+      <i class="fa-solid fa-list-check"></i> Listado de Proyectos
+    </button>
+    <button class="tab-btn px-6 py-3 text-sm flex items-center gap-2 text-slate-500" onclick="switchTab('tab2', this)">
+      <i class="fa-solid fa-chart-pie"></i> Estadísticas
+    </button>
+  </div>
+</nav>
+
+<!-- ═══════════════════ IMPORT MODAL ═══════════════════ -->
+<div id="importModal" class="fixed inset-0 bg-black/60 z-50 items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+    <div class="bg-slate-900 text-white rounded-t-2xl px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-file-excel text-green-400 text-xl"></i>
+        <h2 class="font-bold">Importar desde Excel / CSV</h2>
+      </div>
+      <button onclick="closeImportModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+    </div>
+    <div class="p-6">
+      <p class="text-sm text-slate-600 mb-4">Sube un archivo <strong>.csv</strong> exportado desde Excel con las columnas: <code class="bg-slate-100 px-1 rounded">SUBDIRECCIÓN; PROCESO BENEFICIADO; COORDINACIÓN TI; TIPO DE PROYECTO; AÑO; ESTADO; PTS AUTOEVALUACION; PTS COMITÉ; PTS DIRECCION; PTS TOTAL; % AVANCE; PROYECTO; DESCRIPCION</code></p>
+      <div class="border-2 border-dashed border-blue-300 rounded-xl p-6 text-center bg-blue-50 mb-4">
+        <i class="fa-solid fa-cloud-arrow-up text-blue-400 text-3xl mb-2"></i>
+        <p class="text-slate-600 text-sm mb-3">Arrastra tu archivo aquí o</p>
+        <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="handleCSVImport(event)"/>
+        <button onclick="document.getElementById('csvFileInput').click()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700">Seleccionar archivo</button>
+      </div>
+      <p class="text-xs text-slate-500 mb-2"><strong>Formato esperado (primera fila = encabezados):</strong></p>
+      <pre class="bg-slate-100 text-xs p-3 rounded-lg overflow-x-auto">SUBDIRECCIÓN;PROCESO BENEFICIADO;COORDINACIÓN TI;TIPO DE PROYECTO;AÑO;ESTADO;PTS AUTOEVALUACION;PTS COMITÉ;PTS DIRECCION;PTS TOTAL;% AVANCE;PROYECTO;DESCRIPCION
+    ADMINISTRATIVA Y FINANCIERA;CARTERA;SOLUCIONES DIGITALES;TRANSFORMACIÓN DIGITAL;2026;POR FORMULAR;75;80;90;245;0%;Sistema Integral de Gestión de Cobranza;Descripción del proyecto</pre>
+      <div class="mt-4 flex justify-between items-center">
+        <p class="text-xs text-slate-400">Los datos reemplazarán el portafolio actual</p>
+        <button onclick="resetLocalData()" class="text-xs text-red-500 hover:text-red-700 underline flex items-center gap-1">
+          <i class="fa-solid fa-arrows-rotate"></i> Restablecer datos locales
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ PROJECT DETAIL MODAL ═══════════════════ -->
+<div id="projectDetailModal" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
+    <div class="bg-slate-900 text-white rounded-t-2xl px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3 min-w-0">
+        <i class="fa-solid fa-circle-info text-blue-300 text-xl"></i>
+        <h2 class="font-bold truncate">Detalle del Proyecto</h2>
+      </div>
+      <button onclick="closeProjectModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1">Nombre</p>
+        <h3 id="projectDetailName" class="text-base md:text-lg font-bold text-slate-800 leading-snug"></h3>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+          <p class="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">Tipo de proyecto</p>
+          <p id="projectDetailType" class="text-sm font-semibold text-slate-700">SIN TIPO</p>
+        </div>
+        <div class="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+          <p class="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">Año</p>
+          <p id="projectDetailYear" class="text-sm font-semibold text-slate-700">SIN AÑO</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="bg-blue-50 rounded-xl px-3 py-2 border border-blue-100">
+          <p class="text-[11px] uppercase tracking-wide text-blue-500 font-semibold">Pts Autoevaluación</p>
+          <p id="projectDetailPtsAuto" class="text-sm font-bold text-blue-800">0</p>
+        </div>
+        <div class="bg-cyan-50 rounded-xl px-3 py-2 border border-cyan-100">
+          <p class="text-[11px] uppercase tracking-wide text-cyan-500 font-semibold">Pts Comité</p>
+          <p id="projectDetailPtsComite" class="text-sm font-bold text-cyan-800">0</p>
+        </div>
+        <div class="bg-purple-50 rounded-xl px-3 py-2 border border-purple-100">
+          <p class="text-[11px] uppercase tracking-wide text-purple-500 font-semibold">Pts Dirección</p>
+          <p id="projectDetailPtsDireccion" class="text-sm font-bold text-purple-800">0</p>
+        </div>
+        <div class="bg-amber-50 rounded-xl px-3 py-2 border border-amber-100">
+          <p class="text-[11px] uppercase tracking-wide text-amber-500 font-semibold">Pts Total</p>
+          <p id="projectDetailPtsTotal" class="text-sm font-bold text-amber-800">0</p>
+        </div>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1">Descripción</p>
+        <p id="projectDetailDescription" class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap"></p>
+      </div>
+      <div class="pt-2 flex justify-end">
+        <button onclick="closeProjectModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MAIN CONTENT ═══════════════════ -->
+<main class="max-w-screen-2xl mx-auto px-4 md:px-6 py-6">
+
+  <!-- ─── TAB 1: PROJECT LISTING ─── -->
+  <section id="tab1">
+
+    <!-- KPI Cards -->
+    <div id="kpiCards" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6"></div>
+
+    <!-- Search & Filter Bar -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-5 flex flex-col gap-3 xl:flex-row xl:items-center">
+      <div class="relative w-full xl:flex-1 xl:min-w-[320px]">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <input id="searchInput" type="text" placeholder="Buscar por proyecto, subdirección, proceso o coordinación…"
+          class="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
+          oninput="filterProjects()"/>
+      </div>
+      <div class="flex gap-2 w-full flex-wrap xl:w-auto">
+        <select id="estadoFilter" onchange="filterProjects()"
+          class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[160px]">
+          <option value="">Todos los estados</option>
+        </select>
+        <select id="procesoFilter" onchange="filterProjects()"
+          class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[140px]">
+          <option value="">Todos los procesos</option>
+        </select>
+        <select id="coordFilter" onchange="filterProjects()"
+          class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[180px]">
+          <option value="">Todas las coordinaciones TI</option>
+        </select>
+        <select id="tipoProyectoFilter" onchange="filterProjects()"
+          class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[180px]">
+          <option value="">Todos los tipos</option>
+        </select>
+        <select id="anioFilter" onchange="filterProjects()"
+          class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[130px]">
+          <option value="">Todos los años</option>
+        </select>
+        <select id="groupByFilter" onchange="filterProjects()"
+          class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[160px]">
+          <option value="general">Vista general</option>
+          <option value="proceso">Agrupar por Proceso</option>
+          <option value="subdirección">Agrupar por Subdirección</option>
+          <option value="coordinación ti">Agrupar por Coordinación TI</option>
+        </select>
+        <select id="sortByFilter" onchange="filterProjects()"
+          class="hidden border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[180px]">
+          <option value="pts total">Ordenar por PTS TOTAL</option>
+          <option value="pts direccion">Ordenar por PTS DIRECCION</option>
+          <option value="pts comite">Ordenar por PTS COMITÉ</option>
+          <option value="pts autoevaluacion">Ordenar por PTS AUTOEVALUACION</option>
+          <option value="nombre">Ordenar por nombre</option>
+        </select>
+        <button onclick="clearFilters()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-1 transition">
+          <i class="fa-solid fa-rotate-left text-xs"></i> Limpiar
+        </button>
+      </div>
+    </div>
+
+    <!-- Results count -->
+    <p id="resultCount" class="text-xs text-slate-500 mb-3 px-1"></p>
+
+    <!-- Accordion Container -->
+    <div id="accordionContainer"></div>
+  </section>
+
+  <!-- ─── TAB 2: STATISTICS ─── -->
+  <section id="tab2" class="hidden">
+
+    <!-- Master Filter -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-5 flex flex-col md:flex-row gap-3 items-center">
+      <span class="text-sm font-semibold text-slate-700 flex items-center gap-2"><i class="fa-solid fa-filter text-blue-600"></i> Filtrar estadísticas por estado:</span>
+      <select id="masterFilter" onchange="updateCharts()"
+        class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[180px]">
+        <option value="">Todos los estados</option>
+      </select>
+      <select id="statsGroupBy" onchange="updateCharts()"
+        class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[220px]">
+        <option value="proceso">Estadísticas por Proceso</option>
+        <option value="subdirección">Estadísticas por Subdirección</option>
+        <option value="coordinación ti">Estadísticas por Coordinación TI</option>
+      </select>
+      <span id="statsTotalLabel" class="text-xs text-slate-500 ml-auto"></span>
+    </div>
+
+    <!-- KPI Stats -->
+    <div id="statsKPI" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6"></div>
+
+    <!-- Charts Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <h3 class="font-bold text-slate-800 mb-1 flex items-center gap-2"><i class="fa-solid fa-circle-half-stroke text-blue-600"></i> Distribución por Estado</h3>
+        <p class="text-xs text-slate-400 mb-4">Participación porcentual de cada estado en el portafolio</p>
+        <div class="flex justify-center"><canvas id="donutChart" style="max-height:300px;max-width:300px;"></canvas></div>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <h3 id="barChartTitle" class="font-bold text-slate-800 mb-1 flex items-center gap-2"><i class="fa-solid fa-chart-bar text-blue-600"></i> Proyectos por Proceso</h3>
+        <p id="barChartSubtitle" class="text-xs text-slate-400 mb-4">Cantidad de proyectos agrupados por área o proceso</p>
+        <canvas id="barChart"></canvas>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <h3 class="font-bold text-slate-800 mb-1 flex items-center gap-2"><i class="fa-solid fa-chart-line text-green-600"></i> Avance del Portafolio (Acumulado)</h3>
+        <p class="text-xs text-slate-400 mb-4">Proyectos entregados vs en curso en el año 2026</p>
+        <canvas id="lineChart"></canvas>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <h3 id="stackedChartTitle" class="font-bold text-slate-800 mb-1 flex items-center gap-2"><i class="fa-solid fa-chart-bar text-purple-600"></i> Estado por Proceso (Apilado)</h3>
+        <p id="stackedChartSubtitle" class="text-xs text-slate-400 mb-4">Composición de estados dentro de cada proceso</p>
+        <canvas id="stackedChart"></canvas>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <h3 id="radarChartTitle" class="font-bold text-slate-800 mb-1 flex items-center gap-2"><i class="fa-solid fa-gauge-high text-orange-500"></i> Top 5 Procesos Críticos</h3>
+        <p id="radarChartSubtitle" class="text-xs text-slate-400 mb-4">Procesos con más proyectos en estado crítico o detenido</p>
+        <canvas id="radarChart"></canvas>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 col-span-1 lg:col-span-2">
+        <h3 id="summaryTitle" class="font-bold text-slate-800 mb-1 flex items-center gap-2"><i class="fa-solid fa-table-list text-slate-600"></i> Resumen por Proceso</h3>
+        <p id="summarySubtitle" class="text-xs text-slate-400 mb-4">Tabla detallada con métricas por área</p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="bg-slate-900 text-white">
+                <th id="summaryDimensionHeader" class="px-3 py-2 text-left rounded-tl-lg">Proceso</th>
+                <th class="px-3 py-2 text-center">Total</th>
+                <th class="px-3 py-2 text-center">EN DESARROLLO</th>
+                <th class="px-3 py-2 text-center">FINALIZADO</th>
+                <th class="px-3 py-2 text-center">EN FORMULACIÓN</th>
+                <th class="px-3 py-2 text-center">SUSPENDIDO</th>
+                <th class="px-3 py-2 text-center rounded-tr-lg">% Avance</th>
+              </tr>
+            </thead>
+            <tbody id="summaryTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="bg-slate-900 text-slate-500 text-xs text-center py-4 mt-8">
+  © 2026 Comfenalco Cartagena — Proyectos e Innovación · Dashboard v2.0
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════
+//  DATA — 108 Professional Projects
+// ═══════════════════════════════════════════════
+const ESTADOS = {
+  'EN DESARROLLO':   { color: '#3b82f6', bg: 'bg-blue-100',   text: 'text-blue-700',   icon: 'fa-spinner',          label: 'EN DESARROLLO'   },
+  'FINALIZADO':      { color: '#22c55e', bg: 'bg-green-100',  text: 'text-green-700',  icon: 'fa-circle-check',     label: 'FINALIZADO'      },
+  'ESTABILIZACION':  { color: '#14b8a6', bg: 'bg-teal-100',   text: 'text-teal-700',   icon: 'fa-screwdriver-wrench',label: 'ESTABILIZACION'  },
+  'AJUSTES':         { color: '#0ea5e9', bg: 'bg-sky-100',    text: 'text-sky-700',    icon: 'fa-sliders',          label: 'AJUSTES'         },
+  'POR FORMULAR':    { color: '#f59e0b', bg: 'bg-amber-100',  text: 'text-amber-700',  icon: 'fa-file-pen',         label: 'POR FORMULAR'    },
+  'EN FORMULACIÓN':  { color: '#f97316', bg: 'bg-orange-100', text: 'text-orange-700', icon: 'fa-pencil',           label: 'EN FORMULACIÓN'  },
+  'PRUEBAS':         { color: '#8b5cf6', bg: 'bg-purple-100', text: 'text-purple-700', icon: 'fa-flask',            label: 'PRUEBAS'         },
+  'VALIDAR':         { color: '#06b6d4', bg: 'bg-cyan-100',   text: 'text-cyan-700',   icon: 'fa-magnifying-glass', label: 'VALIDAR'         },
+  'SUSPENDIDO':      { color: '#ef4444', bg: 'bg-red-100',    text: 'text-red-700',    icon: 'fa-circle-pause',     label: 'SUSPENDIDO'      },
+  'DETENIDO':        { color: '#dc2626', bg: 'bg-red-200',    text: 'text-red-800',    icon: 'fa-hand',             label: 'DETENIDO'        },
+  'CANCELADO':       { color: '#6b7280', bg: 'bg-slate-100',  text: 'text-slate-600',  icon: 'fa-ban',              label: 'CANCELADO'       }
+};
+
+const COORDINACION_TI_BY_SUB_PROCESO = {
+  'administrativa y financiera|cartera': 'PROYECTOS Y DESARROLLO',
+  'administrativa y financiera|rays': 'PROYECTOS Y DESARROLLO',
+  'administrativa y financiera|tesoreria': 'ANALITICA',
+  'administrativa y financiera|contabilidad': 'ANALITICA',
+  'administrativa y financiera|cuadres y conciliaciones': 'ANALITICA',
+  'administrativa y financiera|talento humano': 'PROYECTOS Y DESARROLLO',
+  'administrativa y financiera|gerencia de fondos': 'ANALITICA',
+  'administrativa y financiera|financiera': 'SOLUCIONES DIGITALES',
+  'administrativa y financiera|financiera credito': 'PROYECTOS Y DESARROLLO',
+  'administrativa y financiera|servicios logisticos': 'PROYECTOS Y DESARROLLO',
+  'administrativa y financiera|gestion documental': 'PROYECTOS Y DESARROLLO',
+  'administrativa y financiera|vivienda': 'PROYECTOS Y DESARROLLO',
+  'servicios sociales|credito social': 'PROYECTOS Y DESARROLLO',
+  'servicios sociales|servicios recreativos': 'PROYECTOS Y DESARROLLO',
+  'servicios sociales|servicios educativos': 'PROYECTOS Y DESARROLLO',
+  'trasversal|infraestructura ti': 'PROYECTOS Y DESARROLLO',
+  'transversal|infraestructura ti': 'PROYECTOS Y DESARROLLO',
+  'estrategia|planeacion estrategica': 'ANALITICA',
+  'comercial|canales digitales': 'PROYECTOS Y DESARROLLO',
+  'comercial|experiencia cliente': 'PROYECTOS Y DESARROLLO',
+  'educativa|servicios educativos': 'PROYECTOS Y DESARROLLO',
+  'direccion general|gestion legal': 'PROYECTOS Y DESARROLLO'
+};
+
+const COORDINACION_TI_BY_SUBDIRECCION = {
+  'administrativa y financiera': 'PROYECTOS Y DESARROLLO',
+  'servicios sociales': 'PROYECTOS Y DESARROLLO',
+  'trasversal': 'PROYECTOS Y DESARROLLO',
+  'transversal': 'PROYECTOS Y DESARROLLO',
+  'estrategia': 'ANALITICA',
+  'comercial': 'PROYECTOS Y DESARROLLO',
+  'educativa': 'PROYECTOS Y DESARROLLO',
+  'direccion general': 'PROYECTOS Y DESARROLLO'
+};
+
+const STATS_GROUP_LABELS = {
+  'proceso': 'Proceso',
+  'subdirección': 'Subdirección',
+  'coordinación ti': 'Coordinación TI'
+};
+
+const DEFAULT_PROJECTS = (window.XLSX_DEFAULT_PROJECTS && window.XLSX_DEFAULT_PROJECTS.length ? window.XLSX_DEFAULT_PROJECTS : [
+  { nombre:'Sistema Integral de Gestión de Cobranza - Solati (CEC)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CARTERA', 'coordinación ti':'SOLUCIONES DIGITALES', estado:'POR FORMULAR', avance:'0%', descripcion:'Modelo de cobranza para incrementar el porcentaje de recuperación de cartera vencida de colegio' },
+  { nombre:'Sistema Integral de Gestión de Cobranza - Solati (FOSFEC)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CARTERA', 'coordinación ti':'SOLUCIONES DIGITALES', estado:'POR FORMULAR', avance:'0%', descripcion:'Modelo de cobranza para incrementar el porcentaje de recuperación de cartera vencida de FOSFEC' },
+  { nombre:'Sistema Integral de Gestión de Cobranza - Solati (Aportes)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CARTERA', 'coordinación ti':'SOLUCIONES DIGITALES', estado:'PRUEBAS', avance:'81%', descripcion:'' },
+  { nombre:'Línea Express (Billetera)', subdirección:'SERVICIOS SOCIALES', proceso:'CREDITO SOCIAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'Bus de Datos (Priorizar alcances)', subdirección:'TRASVERSAL', proceso:'TRANSVERSAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'SUSPENDIDO', avance:'14%', descripcion:'' },
+  { nombre:'Simulador y gestión de cambios en la elaboración de presupuesto', subdirección:'ESTATEGIA', proceso:'ESTRATEGIA', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'AJUSTE SEGURIDAD BILLETERA (SUPLANTACIÓN)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'Automatización de procesos RPA - COE', subdirección:'TRASVERSAL', proceso:'TRANSVERSAL', 'coordinación ti':'SOLUCIONES DIGITALES', estado:'SUSPENDIDO', avance:'0%', descripcion:'' },
+  { nombre:'Sistema de gestión y monitorieo de alarmas transaccionales - Antifraudes (Crear las propias alarmas - Reemplaza el SOCS)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'FINANCIERA - CREDITO', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'Gestionar la operación y monitoreo del ciclo de vida de alertas transaccionales financieras y eventos tecnológicos. (ver procedimiento P-TEC-32 Gestión de Incidentes de seguridad de la información' },
+  { nombre:'Interfaz Ventas en Línea - New Pos (venta)', subdirección:'SERVICIOS SOCIALES', proceso:'RECREACIÓN', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'SUSPENDIDO', avance:'0%', descripcion:'' },
+  { nombre:'Interfaz SAP - New Stock (inventario)', subdirección:'SERVICIOS SOCIALES', proceso:'RECREACIÓN', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'SUSPENDIDO', avance:'0%', descripcion:'' },
+  { nombre:'Aclárame: Solución para Autogestión de Cartera Aportes de Empleadores', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CARTERA', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'Gestión de Colas y aforos - Canchas', subdirección:'SERVICIOS SOCIALES', proceso:'DEPORTES', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'Billetera (tiendas de barrio)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'Redención de la cuota monetaria en nuevos establecimientos aliados - tiendas de barrios' },
+  { nombre:'Billetera (cobró por numero de identificación)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'40%', descripcion:'cobro de la cuota monetaria a través del número de identificación' },
+  { nombre:'Ventas en Línea (Deporte) ( Escuelas Deportivas y Club Deportivo)', subdirección:'SERVICIOS SOCIALES', proceso:'DEPORTES', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'EN DESARROLLO', avance:'30%', descripcion:'' },
+  { nombre:'Oficina Virtual - Consultas IA - LSV TECH', subdirección:'COMERCIAL', proceso:'SERVICIO AL CLIENTE', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'PRUEBAS', avance:'95%', descripcion:'' },
+  { nombre:'Microservicios Comfeweb - LSV TECH', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'PRUEBAS', avance:'87%', descripcion:'' },
+  { nombre:'Automatización de convenios de libranza (firma del director) INTEGRADO COMFEWEB LSV - TECH', subdirección:'SERVICIOS SOCIALES', proceso:'CREDITO SOCIAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'validar con jhon' },
+  { nombre:'Eliminación de Duplicidad de BP´s en la Base de Datos (Masiva)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'PRODUCTIVIDAD', estado:'POR FORMULAR', avance:'0%', descripcion:'' },
+  { nombre:'Ventas en Línea (Alojamiento Corales)', subdirección:'SERVICIOS SOCIALES', proceso:'RECREACIÓN', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'Ventas en Línea (Cultura) (Escuela de Artes).', subdirección:'SERVICIOS SOCIALES', proceso:'CULTURA', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'EN DESARROLLO', avance:'30%', descripcion:'' },
+  { nombre:'Reingeniería de Matrícula Virtual', subdirección:'EDUCATIVA', proceso:'EDUCACIÓN FORMAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'Reingeniería de Matrícula Virtual - Mejoras', subdirección:'EDUCATIVA', proceso:'EDUCACIÓN FORMAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'Reingeniería de Matrícula Virtual - Transporte', subdirección:'EDUCATIVA', proceso:'CEC', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'Permitir incluir la opcion de transporte en la matricula por medio de ventas en linea' },
+  { nombre:'Billetera (Bono alimentación Reemplazo de Sodexo)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'TALENTO HUMANO', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'Billetera (Beneficios económicos  FOSFEC)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'GERENCIA DE FONDOS', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'Ventas en Línea Cruzadas (Paquetes de productos) - Inteligencia de Negocio', subdirección:'COMERCIAL', proceso:'COMERCIAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'' },
+  { nombre:'Ventas empresariales', subdirección:'COMERCIAL', proceso:'COMERCIAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'EN DESARROLLO', avance:'68%', descripcion:'' },
+  { nombre:'Facturación electrónica (Extractos) (Requiere Desarrollo)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CARTERA', 'coordinación ti':'SOLUCIONES DIGITALES', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'Automatización de encuestas de servicio al cliente', subdirección:'COMERCIAL', proceso:'SERVICIO AL CLIENTE', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'' },
+  { nombre:'Postulación Virtual de subsidio de vivienda', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'Viene en Genesys porque esto está en SAP. Solicitar AS IS y TO BE y si se hace se saca de SAP de vivienda, pero si se registraría en FI' },
+  { nombre:'Bono Educativo (Módulo postulación)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'CANCELADO', avance:'0%', descripcion:'' },
+  { nombre:'Bono Educativo (Pensión de colegios del sistema de subsidio familiar)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'CANCELADO', avance:'0%', descripcion:'' },
+  { nombre:'Recepción Avanzada', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CONTABILIDAD', 'coordinación ti':'SOLUCIONES DIGITALES', estado:'DETENIDO', avance:'90%', descripcion:'' },
+  { nombre:'Automatización reportes a SIMÓN - SSF Proyecto análitica (Aplica a Bono, vivienda y Fosfec).', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'ANALITICA', estado:'POR FORMULAR', avance:'0%', descripcion:'VALIDAR CON ANALITICA' },
+  { nombre:'Automatización de tareas en el proceso de revisión diaria de la actualización de novedades y salarios PILA-ERP-CRM (Analítica)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'ANALITICA', estado:'POR FORMULAR', avance:'0%', descripcion:'VALIDAR CON ANALITICA' },
+  { nombre:'Sistema de administración de recobro de la cuota monetaria y beneficios económicos', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'VALIDAR SOLATI CARTERA PARA INTEGRACION CON PROYECTO DE FOSFEC, (retención, reversión de saldos, acuerdos de pago). Es manual se lleva en excel, se comenten errores, se deja de reportar información. Recuperar cuotas demás que pagaron erroneamente o pagos sin derecho. Temas de auditoría.' },
+  { nombre:'Sistema Predictivo de gestión', subdirección:'ESTATEGIA', proceso:'ESTRATEGIA', 'coordinación ti':'ANALITICA', estado:'POR FORMULAR', avance:'0%', descripcion:'' },
+  { nombre:'Migración y apagado de Claro', subdirección:'TRASVERSAL', proceso:'TRANSVERSAL', 'coordinación ti':'SERVICIOS TI', estado:'CANCELADO', avance:'100%', descripcion:'' },
+  { nombre:'Estabilización y Migración de SAP (Matriz de problemas (PROVEEDOR, pausado), limpieza del CORD, actualización SAP)', subdirección:'TRASVERSAL', proceso:'TRANSVERSAL', 'coordinación ti':'GERENCIA DE SAP', estado:'EN DESARROLLO', avance:'35%', descripcion:'' },
+  { nombre:'Estabilización y Migración de SAP Genesys (RAYS)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'GERENCIA DE SAP', estado:'EN FORMULACIÓN', avance:'40%', descripcion:'' },
+  { nombre:'Estabilización y Migración de SAP Colegio', subdirección:'EDUCATIVA', proceso:'CEC', 'coordinación ti':'GERENCIA DE SAP', estado:'POR FORMULAR', avance:'0%', descripcion:'Cambio de la vertical de sap en el servicio de colegio' },
+  { nombre:'Estabilización y Migración de SAP Crédito - (CML)', subdirección:'SERVICIOS SOCIALES', proceso:'CREDITO SOCIAL', 'coordinación ti':'SOLUCIONES DIGITALES', estado:'EN DESARROLLO', avance:'0%', descripcion:'' },
+  { nombre:'Claves de reconciliación - CREDITO', subdirección:'SERVICIOS SOCIALES', proceso:'CREDITO SOCIAL', 'coordinación ti':'SOLUCIONES DIGITALES', estado:'EN DESARROLLO', avance:'0%', descripcion:'' },
+  { nombre:'Claves de reconciliación - FINANCIERA', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'FINANCIERA', 'coordinación ti':'SOLUCIONES DIGITALES', estado:'EN DESARROLLO', avance:'0%', descripcion:'' },
+  { nombre:'Sistema para gestion de contratos y proveedores (InProces)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'SERVICIOS LOGÍSTICOS', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'EN DESARROLLO', avance:'53%', descripcion:'' },
+  { nombre:'Aforo por producto Takurika', subdirección:'SERVICIOS SOCIALES', proceso:'RECREACIÓN', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'Cambio de Lógica Restaurante Da Tony´s (Venta para el trabajador y no al beneficiario)', subdirección:'SERVICIOS SOCIALES', proceso:'RECREACIÓN', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'FINALIZADO', avance:'100%', descripcion:'Ventas en línea Da Tony´s' },
+  { nombre:'APP Mostrar disponibilidad en el calendario de ventas. Mensaje que aclare cuando hay disponibilidad y cuando no. Rosa', subdirección:'TRASVERSAL', proceso:'TRANSVERSAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'FINALIZADO', avance:'100%', descripcion:'Ajuste calendario APP' },
+  { nombre:'Software para manejo de Foniñez', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'GERENCIA DE FONDOS', 'coordinación ti':'SOLUCIONES DIGITALES', estado:'PRUEBAS', avance:'95%', descripcion:'' },
+  { nombre:'FLUJO DE CAJA', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'TESORERIA', 'coordinación ti':'ANALITICA', estado:'FINALIZADO', avance:'99%', descripcion:'' },
+  { nombre:'PORTAFOLIO DE INVERSIONES', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'TESORERIA', 'coordinación ti':'ANALITICA', estado:'FINALIZADO', avance:'99%', descripcion:'' },
+  { nombre:'ESTADO DE TESORERIA', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'TESORERIA', 'coordinación ti':'ANALITICA', estado:'FINALIZADO', avance:'99%', descripcion:'' },
+  { nombre:'CONCILIACIONES DIARIAS', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CUADRES Y CONCILIACIONES', 'coordinación ti':'ANALITICA', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'PIGNORACIÓN CREDITO SOCIAL', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CARTERA', 'coordinación ti':'ANALITICA', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'FONDO DE LEY EXCEDENTES 55%', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'GERENCIA DE FONDOS', 'coordinación ti':'ANALITICA', estado:'EN DESARROLLO', avance:'60%', descripcion:'' },
+  { nombre:'INFORMACIÓN EXOGENA - MEDIOS MAGNETICOS', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CONTABILIDAD', 'coordinación ti':'ANALITICA', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'APP COMFENALCO CARACTERIZACIÓN', subdirección:'COMERCIAL', proceso:'COMERCIAL', 'coordinación ti':'ANALITICA', estado:'EN DESARROLLO', avance:'0%', descripcion:'VALIDAR CON ANALITICA' },
+  { nombre:'SEGUIMIENTO PROYECTOS', subdirección:'ESTATEGIA', proceso:'ESTRATEGIA', 'coordinación ti':'ANALITICA', estado:'EN DESARROLLO', avance:'13%', descripcion:'' },
+  { nombre:'INDICADORES AGENCIA EMPLEO', subdirección:'SERVICIOS SOCIALES', proceso:'AGENCIA DE EMPLEO', 'coordinación ti':'ANALITICA', estado:'EN DESARROLLO', avance:'13%', descripcion:'' },
+  { nombre:'CALIDAD DE LA DATA', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'ANALITICA', estado:'EN DESARROLLO', avance:'10%', descripcion:'' },
+  { nombre:'PORTAL GESTION SOLUCION DE AyE', subdirección:'ESTATEGIA', proceso:'ESTRATEGIA', 'coordinación ti':'ANALITICA', estado:'EN DESARROLLO', avance:'7%', descripcion:'' },
+  { nombre:'PORTAL GESTON SIGNOS VITALES', subdirección:'ESTATEGIA', proceso:'ESTRATEGIA', 'coordinación ti':'ANALITICA', estado:'EN DESARROLLO', avance:'0%', descripcion:'' },
+  { nombre:'BALANCE SOCIAL', subdirección:'COMERCIAL', proceso:'COMERCIAL', 'coordinación ti':'ANALITICA', estado:'POR FORMULAR', avance:'0%', descripcion:'VALIDAR CON ANALITICA' },
+  { nombre:'GIASS Gestión Integral de Afiliados al Sistema del Subsidio Familiar (Actualización de la Data 2.0)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'ANALITICA', estado:'EN DESARROLLO', avance:'66%', descripcion:'' },
+  { nombre:'SAT (Conexión con ministerio de salud para intercambio de información - validación de derecho para otorgar subsidios).', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'ANALITICA', estado:'EN DESARROLLO', avance:'26%', descripcion:'' },
+  { nombre:'APP -  Categorización (ajuste) lista de productos', subdirección:'COMERCIAL', proceso:'COMERCIAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'' },
+  { nombre:'APP - Seguridad reducir número de veces que se introduce el otp', subdirección:'COMERCIAL', proceso:'SERVICIO AL CLIENTE', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'' },
+  { nombre:'Digiturno cis', subdirección:'COMERCIAL', proceso:'SERVICIO AL CLIENTE', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'' },
+  { nombre:'Colas y aforo - Takurika', subdirección:'COMERCIAL', proceso:'SERVICIO AL CLIENTE', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'' },
+  { nombre:'Servicio de Marketplace en app para otras empresas', subdirección:'COMERCIAL', proceso:'COMERCIAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'' },
+  { nombre:'Inteligencia de negocios en App', subdirección:'COMERCIAL', proceso:'COMERCIAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'' },
+  { nombre:'Software para Agencia de empleo', subdirección:'SERVICIOS SOCIALES', proceso:'AGENCIA DE EMPLEO', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'' },
+  { nombre:'C4C', subdirección:'COMERCIAL', proceso:'COMERCIAL', 'coordinación ti':'SOLUCIONES DIGITALES', estado:'EN DESARROLLO', avance:'0%', descripcion:'' },
+  { nombre:'UPGRADE DE EHP SAP', subdirección:'ESTATEGIA', proceso:'SAP', 'coordinación ti':'GERENCIA DE SAP', estado:'EN DESARROLLO', avance:'73%', descripcion:'' },
+  { nombre:'REINGENIERÍA ARQUITECTURA DE INTEGRACIONES (PI - IS)', subdirección:'ESTATEGIA', proceso:'SAP', 'coordinación ti':'GERENCIA DE SAP', estado:'EN DESARROLLO', avance:'30%', descripcion:'' },
+  { nombre:'RENOVACIÓN DE CONTRATOS SAP', subdirección:'ESTATEGIA', proceso:'SAP', 'coordinación ti':'GERENCIA DE SAP', estado:'FINALIZADO', avance:'100%', descripcion:'' },
+  { nombre:'CASO DE NEGOCIO MIGRACIÓN ERP CLOUD SAP', subdirección:'ESTATEGIA', proceso:'SAP', 'coordinación ti':'GERENCIA DE SAP', estado:'EN DESARROLLO', avance:'55%', descripcion:'' },
+  { nombre:'PLAN DE REIMPLEMENTACÓN S/4 HANA (Process Discovery)', subdirección:'ESTATEGIA', proceso:'SAP', 'coordinación ti':'GERENCIA DE SAP', estado:'EN FORMULACIÓN', avance:'20%', descripcion:'' },
+  { nombre:'DEFINICIÓN DEL GOBIERNO DE AMBIENTES DE SAP', subdirección:'ESTATEGIA', proceso:'SAP', 'coordinación ti':'GERENCIA DE SAP', estado:'EN FORMULACIÓN', avance:'10%', descripcion:'' },
+  { nombre:'DEFINICIÓN DE MATRIZ DE ROLES Y PERFILES (GOBIERNO)', subdirección:'ESTATEGIA', proceso:'SAP', 'coordinación ti':'GERENCIA DE SAP', estado:'EN FORMULACIÓN', avance:'20%', descripcion:'' },
+  { nombre:'Certificados Vivienda', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'VIVIENDA', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'(de no adjudicación de subsidio de vivienda, subsidio pagado, subsidio vigente, renuncia a la postulación y asignación)' },
+  { nombre:'Cambio de Docuware (cambios estructurales).', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'GESTIÓN DOCUMENTAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'EN FORMULACIÓN', avance:'25%', descripcion:'' },
+  { nombre:'Automatización de la conciliación de recaudo de aportes', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CUADRES Y CONCILIACIONES', 'coordinación ti':'ANALITICA', estado:'POR FORMULAR', avance:'0%', descripcion:'' },
+  { nombre:'VENTANILLA UNICA', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'SERVICOS LOGISTICOS', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0', descripcion:'GESTION DE COMUNICACIONES OFICIALES ENTRANTES Y SALIENTES DE LA CAJA' },
+  { nombre:'CHAT GPT JURIDICA', subdirección:'DIRECCION GENERAL', proceso:'OFICINA JURIDICA', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0', descripcion:'MODELO DE RESPUESTAS PARA RESPONDER PETICIONES DE LA OFICINA JURIDICA ATRAVEZ DE LA IA' },
+  { nombre:'POSTULACION DE FOSFEC POR MEDIO DE LA APP', subdirección:'SERVICIOS SOCIALES', proceso:'AGENCIA DE EMPLEO', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0', descripcion:'' },
+  { nombre:'MACHINE LEARNIG CON IA', subdirección:'SERVICIOS SOCIALES', proceso:'CREDITO SOCIAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0', descripcion:'OTOGAR CREDITOS PREAPROBADOS POR MEDIO DE IA' },
+  { nombre:'MODULO DE ADMINISTRACION DE CONVENIOS', subdirección:'SERVICIOS SOCIALES', proceso:'CARTERA - CREDITO', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'ACLARAME LIBRANZA EMPRESAS' },
+  { nombre:'VOZ ALIADA', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CARTERA', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'COBROS CON IA TELEFONICO' },
+  { nombre:'ESTADOS DE CREDITOS EN COMFEWEB', subdirección:'SERVICIOS SOCIALES', proceso:'CREDITO SOCIAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'permitir al afiliado conocer el estado del credito, validar con software de credito' },
+  { nombre:'AUTOMATIZACION DE CUENTAS Y ROL DE ACREEDOR', subdirección:'SERVICIOS SOCIALES', proceso:'CREDITO SOCIAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'se propone crear la cuenta bancaria desde el ingreso de la solicitud por parte del afiliado, permitiendo que la información de la cuenta bancaria digitada sea primeramente validada por nuestro aliado datacrédito Experian y una vez corroborada su existencia y titular esta pueda migrar a SAP o aplicativo existente' },
+  { nombre:'VENTAS DE LOS PRODUTOS ADULTO MAYOR Y DISCAPACIDAD DESDE LA APP', subdirección:'EDUCATIVA', proceso:'PROTECCION SOCIAL', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'' },
+  { nombre:'CEC CONNECT', subdirección:'EDUCATIVA', proceso:'CEC', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'permitir a los padres acceder a todas las plataformas de la cec desde un portal con un solo logeo.' },
+  { nombre:'APLICATIVO SAP O NO SAP PARA GESTIONAR SOLICITUDES DE LOS PADRES', subdirección:'EDUCATIVA', proceso:'CEC', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'Aplicativo CEC: cec no cuenta con un aplicativo en sap o no sap que ayude a la gestión de las necesidades o solicitudes de los padres y comunidad en general. Alcance de oficina virtual?. Articular con servicio al cliente.' },
+  { nombre:'PAGO DE CUOTA EN LINEA', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'RAYS', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'PAGO DE CUOTAS MONETARIAS NO PAGADAS A LA BILLETERA' },
+  { nombre:'CERTIFICADO TRIBUTARIO ONLINE', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CONTABILIDAD', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'PERMITE DESCARGAR DE FORMA FACIL EL CERTIFICADO TRIBUTARIO A LOS PROVEEDORES' },
+  { nombre:'CONSOLA DE GIAS', subdirección:'SIN SUBDIRECCIÓN', proceso:'SIN PROCESO', 'coordinación ti':'SIN COORDINACIÓN TI', estado:'POR FORMULAR', avance:'0%', descripcion:'' },
+  { nombre:'Emisión de extractos de colegio a la DIAN', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CARTERA', 'coordinación ti':'SOLUCIONES DIGITALES', estado:'POR FORMULAR', avance:'0%', descripcion:'Emisión automatica de extractos del colegio a la DIAN' },
+  { nombre:'Realizar ajuste al reporte de Datacredito Colegio para que incluya dias de mora', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CARTERA', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'Reporte de Datacrédito: Recomendación de auditoría deben reportar a los papás como mecanismo de recuperación de cartera, reportar a Datacrédito, le falta la columna días de mora, proceso manual de reporte, todo está es SAP excepto ese dato deben incluir porque lo incluye en la estructura del reporte' },
+  { nombre:'Agente VirtuaL (IA) Generativa (Solati)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CARTERA', 'coordinación ti':'PROYECTOS Y DESARROLLO', estado:'POR FORMULAR', avance:'0%', descripcion:'Llamar por IA a clientes (5.000 a 6.000) programar llamadas para que al gestor solo le llegue aquellos casos que realmente quieran hacer convenio de pago. El proveedor tiene un módulo que ya les presento.' },
+  { nombre:'Ajuste Ruta Procesal Modulo Juridico Adminfo (Solati)', subdirección:'ADMINISTRATIVA Y FINANCIERA', proceso:'CARTERA', 'coordinación ti':'SIN COORDINACIÓN TI', estado:'FINALIZADO', avance:'100%', descripcion:'juste en el de crédito para que hagan un ajuste procesal porque deben optimizar (agrupar tareas) para ajustar a las demás verticales.' }
+]);
+
+
+// Nota: El campo 'avance' está disponible para uso futuro en tarjetas de proyectos.
+/* BLOQUE LEGADO DESACTIVADO: datos demo anteriores
+  { nombre:'Módulo de Refinanciación y Acuerdos de Pago',     proceso:'CARTERA',      estado:'En Ejecución',  descripcion:'Plataforma digital para gestión de acuerdos de pago, refinanciaciones y seguimiento de compromisos.' },
+  { nombre:'Portal de Autoconsulta de Cartera Afiliados',     proceso:'CARTERA',      estado:'Completado',    descripcion:'Módulo self-service para afiliados con acceso a estado de cuenta, mora y calendario de pagos.' },
+  { nombre:'Integración COBIS - Módulo Cartera Digital',      proceso:'CARTERA',      estado:'En Planeación', descripcion:'Interconexión del sistema COBIS con plataforma de cartera digital para sincronización de saldos.' },
+  { nombre:'Automatización de Alertas de Mora Temprana',      proceso:'CARTERA',      estado:'En Ejecución',  descripcion:'Motor de alertas automatizado vía SMS y correo para deudores con mora entre 1 y 30 días.' },
+  { nombre:'Dashboard Ejecutivo de Indicadores de Cartera',   proceso:'CARTERA',      estado:'Completado',    descripcion:'Panel gerencial con KPIs de cartera vencida, índice de recuperación y proyecciones de cobranza.' },
+  { nombre:'Motor de Scoring Crediticio Interno',             proceso:'CARTERA',      estado:'En Revisión',   descripcion:'Algoritmo de calificación crediticia para evaluación de solicitudes de crédito del fondo de empleados.' },
+  { nombre:'Gestión Documental de Garantías y Pagarés',       proceso:'CARTERA',      estado:'En Ejecución',  descripcion:'Digitalización y custodia electrónica de documentos de garantía y títulos valores de la cartera.' },
+  { nombre:'Parametrización de Tasas y Productos Crediticios',proceso:'CARTERA',      estado:'En Planeación', descripcion:'Módulo de configuración dinámica de tasas, plazos y condiciones de productos de la línea crediticia.' },
+
+  // ── RAYS ────────────────────────────────────────────────────────────────────
+  { nombre:'Aclárame - Gestión de Empleadores RAYS',          proceso:'RAYS',         estado:'En Ejecución',  descripcion:'Plataforma Aclárame para resolución de novedades y reclamaciones de empleadores afiliados al sistema.' },
+  { nombre:'Portal RAYS - Recaudo y Aportes en Línea',        proceso:'RAYS',         estado:'En Ejecución',  descripcion:'Sistema de recaudo electrónico de aportes parafiscales con conciliación automática por empresa.' },
+  { nombre:'Integración PILA - RAYS Automático',              proceso:'RAYS',         estado:'Completado',    descripcion:'Interfaz de integración con la Planilla Integrada de Liquidación de Aportes para conciliación RAYS.' },
+  { nombre:'Módulo de Novedades y Devoluciones RAYS',         proceso:'RAYS',         estado:'En Revisión',   descripcion:'Gestión de novedades de aporte, devoluciones y ajustes de empleadores en el sistema de recaudo.' },
+  { nombre:'Generador de Certificados de Aportante',          proceso:'RAYS',         estado:'Completado',    descripcion:'Servicio automatizado de certificados de paz y salvo y constancias de aportes parafiscales.' },
+  { nombre:'Sistema de Auditoría de Aportes Irregulares',     proceso:'RAYS',         estado:'En Planeación', descripcion:'Motor de detección de inconsistencias en aportes: subfacturación, omisión de cotizantes y evasión.' },
+  { nombre:'App Móvil RAYS para Representantes Legales',      proceso:'RAYS',         estado:'En Ejecución',  descripcion:'Aplicación móvil para que representantes legales gestionen aportes, consulten estados y descarguen comprobantes.' },
+  { nombre:'Reporte Ejecutivo de Recaudo Parafiscal',         proceso:'RAYS',         estado:'Completado',    descripcion:'Cuadro de mando con seguimiento de recaudo por sector económico, tamaño de empresa y periodicidad.' },
+
+  // ── VIVIENDA ──────────────────────────────────────────────────────────────
+  { nombre:'Sistema de Postulación de Subsidio de Vivienda',  proceso:'VIVIENDA',     estado:'En Ejecución',  descripcion:'Plataforma digital para postulación, estudio y asignación de subsidios de vivienda familiar.' },
+  { nombre:'Módulo de Gestión de Proyectos Constructores',    proceso:'VIVIENDA',     estado:'En Ejecución',  descripcion:'Registro y seguimiento de proyectos de constructores vinculados al programa de vivienda Comfenalco.' },
+  { nombre:'Portal del Beneficiario de Vivienda',             proceso:'VIVIENDA',     estado:'Completado',    descripcion:'Espacio digital para beneficiarios con seguimiento de trámite, documentos pendientes y desembolso.' },
+  { nombre:'Integración Fonvivienda - Registro de Subsidios', proceso:'VIVIENDA',     estado:'En Ejecución',  descripcion:'Interfaz con el Fondo Nacional de Vivienda para validación y registro de subsidios otorgados.' },
+  { nombre:'Gestión de Cierres Financieros de Vivienda',      proceso:'VIVIENDA',     estado:'En Planeación', descripcion:'Módulo para coordinar cierres financieros, créditos complementarios y desembolsos en proyectos VIS.' },
+  { nombre:'Catálogo Digital de Oferta de Vivienda VIS',      proceso:'VIVIENDA',     estado:'Completado',    descripcion:'Vitrina digital de proyectos de vivienda de interés social disponibles para afiliados Comfenalco.' },
+  { nombre:'Sistema de Alertas de Vencimiento de Subsidios',  proceso:'VIVIENDA',     estado:'En Ejecución',  descripcion:'Notificaciones automáticas de fechas límite de uso de subsidio y renovaciones de resoluciones.' },
+  { nombre:'Digitalización de Expedientes de Vivienda',       proceso:'VIVIENDA',     estado:'En Revisión',   descripcion:'Proceso de escaneo, indexación y gestión documental de los expedientes físicos de vivienda.' },
+
+  // ── TESORERÍA ─────────────────────────────────────────────────────────────
+  { nombre:'Sistema de Flujo de Caja Proyectado',             proceso:'TESORERÍA',    estado:'En Ejecución',  descripcion:'Herramienta de proyección de flujo de caja a 90 días con integración bancaria en línea.' },
+  { nombre:'Conciliación Bancaria Automatizada Multibanco',   proceso:'TESORERÍA',    estado:'Completado',    descripcion:'Motor de conciliación automática con múltiples entidades bancarias mediante lectura de extractos.' },
+  { nombre:'Portal de Pagos Electrónicos a Proveedores',      proceso:'TESORERÍA',    estado:'En Ejecución',  descripcion:'Plataforma de pagos masivos PSE/ACH para proveedores y contratistas con trazabilidad completa.' },
+  { nombre:'Módulo de Inversiones y Portafolio Financiero',   proceso:'TESORERÍA',    estado:'En Planeación', descripcion:'Gestión de inversiones temporales, CDT y portafolio de renta fija con seguimiento de rendimientos.' },
+  { nombre:'Integración Banco de la República - Pagos',       proceso:'TESORERÍA',    estado:'En Revisión',   descripcion:'Conectividad con el sistema SEBRA del Banco de la República para operaciones interbancarias.' },
+  { nombre:'Dashboard de Posición Diaria de Caja',            proceso:'TESORERÍA',    estado:'Completado',    descripcion:'Cuadro de mando en tiempo real de la posición de efectivo en todas las cuentas de la organización.' },
+  { nombre:'Automatización de Pagos de Nómina y PILA',        proceso:'TESORERÍA',    estado:'En Ejecución',  descripcion:'Procesamiento automatizado del pago de nómina y generación de archivos PILA para entidades.' },
+  { nombre:'Control de Límites y Cupos de Tesorería',         proceso:'TESORERÍA',    estado:'En Planeación', descripcion:'Sistema de control de cupos por banco, contraparte y tipo de operación con alertas en tiempo real.' },
+
+  // ── CONTABILIDAD ──────────────────────────────────────────────────────────
+  { nombre:'Cierre Contable Automatizado Mensual',            proceso:'CONTABILIDAD', estado:'Completado',    descripcion:'Proceso automatizado de cierre contable mensual con generación de estados financieros bajo NIIF.' },
+  { nombre:'Módulo de Activos Fijos NIIF 16',                 proceso:'CONTABILIDAD', estado:'En Ejecución',  descripcion:'Gestión integral de activos fijos con cálculo de depreciación según NIIF 16 y arrendamientos.' },
+  { nombre:'Integración ERP-Contabilidad Automática',         proceso:'CONTABILIDAD', estado:'En Ejecución',  descripcion:'Interfaz bidireccional entre el ERP operativo y el módulo contable para asientos automáticos.' },
+  { nombre:'Reportes XBRL para Supersociedades',              proceso:'CONTABILIDAD', estado:'En Planeación', descripcion:'Generación de reportes financieros en formato XBRL para envío a Superintendencia de Sociedades.' },
+  { nombre:'Conciliación de Cuentas Intercompañía',           proceso:'CONTABILIDAD', estado:'En Revisión',   descripcion:'Módulo de conciliación de saldos intercompañía con reconciliación automática de diferencias.' },
+  { nombre:'Dashboard Gerencial Estados Financieros NIIF',    proceso:'CONTABILIDAD', estado:'Completado',    descripcion:'Panel gerencial de estados financieros bajo NIIF con comparativos, variaciones y tendencias.' },
+  { nombre:'Digitalización de Comprobantes Contables',        proceso:'CONTABILIDAD', estado:'En Ejecución',  descripcion:'Implementación de comprobante electrónico con firma digital y trazabilidad de modificaciones.' },
+  { nombre:'Motor de Reclasificación y Ajustes Contables',    proceso:'CONTABILIDAD', estado:'En Planeación', descripcion:'Herramienta para reclasificaciones masivas, ajustes de fin de período y diferidos automáticos.' },
+
+  // ── TALENTO HUMANO ───────────────────────────────────────────────────────
+  { nombre:'Portal del Empleado - Mi Comfenalco',             proceso:'TALENTO HUMANO', estado:'Completado',    descripcion:'Portal self-service para empleados: desprendibles, vacaciones, certificados y solicitudes de RRHH.' },
+  { nombre:'Sistema de Evaluación de Desempeño 360°',         proceso:'TALENTO HUMANO', estado:'En Ejecución',  descripcion:'Plataforma de evaluación por competencias con retroalimentación de pares, jefes y subalternos.' },
+  { nombre:'Módulo de Gestión de Vacaciones y Ausentismo',    proceso:'TALENTO HUMANO', estado:'Completado',    descripcion:'Control integral de vacaciones, licencias, incapacidades y ausentismo con alertas automáticas.' },
+  { nombre:'Nómina Electrónica DIAN - Emisión Masiva',        proceso:'TALENTO HUMANO', estado:'En Ejecución',  descripcion:'Implementación de nómina electrónica ante la DIAN con generación, firma y transmisión de CUNE.' },
+  { nombre:'Plataforma de Capacitación y E-Learning',         proceso:'TALENTO HUMANO', estado:'En Ejecución',  descripcion:'LMS corporativo para cursos virtuales, certificaciones y seguimiento de planes de formación.' },
+  { nombre:'Sistema de Selección y Reclutamiento Digital',    proceso:'TALENTO HUMANO', estado:'En Planeación', descripcion:'ATS para gestión de vacantes, aplicaciones en línea, pruebas virtuales y entrevistas digitales.' },
+  { nombre:'Indicadores de Clima Organizacional',             proceso:'TALENTO HUMANO', estado:'En Revisión',   descripcion:'Encuesta digital de clima, análisis de resultados y planes de mejora con seguimiento.' },
+  { nombre:'Control de Dotación y EPP por Cargo',             proceso:'TALENTO HUMANO', estado:'En Planeación', descripcion:'Gestión del inventario de dotación laboral, entregas por cargo y control de equipos de protección.' },
+
+  // ── SERVICIOS AL AFILIADO ────────────────────────────────────────────────
+  { nombre:'Billetera Digital - Bono Alimentación',           proceso:'SERVICIOS AL AFILIADO', estado:'En Ejecución',  descripcion:'Implementación de billetera digital para gestión y uso del bono de alimentación por afiliados.' },
+  { nombre:'App Comfenalco - Versión 3.0',                    proceso:'SERVICIOS AL AFILIADO', estado:'En Ejecución',  descripcion:'Nueva versión de la app móvil con rediseño UX, módulo de citas, servicios y pago en línea.' },
+  { nombre:'Portal Web Corporativo - Migración v5',           proceso:'SERVICIOS AL AFILIADO', estado:'En Ejecución',  descripcion:'Migración y modernización del portal web con CMS actualizado, accesibilidad y performance.' },
+  { nombre:'Módulo de Citas Médicas en Línea',                proceso:'SERVICIOS AL AFILIADO', estado:'Completado',    descripcion:'Agendamiento de citas para servicios de salud, odontología y bienestar desde canales digitales.' },
+  { nombre:'Sistema de Turnos Digital - Sedes',               proceso:'SERVICIOS AL AFILIADO', estado:'Completado',    descripcion:'Gestión digital de turnos en sedes, sala de espera virtual y llamado por pantallas.' },
+  { nombre:'Programa Fidelización - Puntos Comfe',            proceso:'SERVICIOS AL AFILIADO', estado:'En Planeación', descripcion:'Programa de lealtad para afiliados con acumulación y redención de puntos en servicios Comfenalco.' },
+  { nombre:'Chatbot de Atención al Ciudadano - IA',           proceso:'SERVICIOS AL AFILIADO', estado:'En Ejecución',  descripcion:'Asistente virtual con IA conversacional para canales digitales, atención 24/7 y escalamiento.' },
+  { nombre:'Encuesta de Satisfacción Omnicanal',              proceso:'SERVICIOS AL AFILIADO', estado:'Completado',    descripcion:'Sistema de medición de NPS y CSAT en todos los canales con analítica de experiencia del cliente.' },
+  { nombre:'Kioscos de Autogestión en Sedes',                 proceso:'SERVICIOS AL AFILIADO', estado:'En Revisión',   descripcion:'Implementación de kioscos táctiles para trámites de afiliación, consulta de servicios y pagos.' },
+
+  // ── EDUCACIÓN ────────────────────────────────────────────────────────────
+  { nombre:'Sistema de Matrícula Escolar en Línea',           proceso:'EDUCACIÓN',    estado:'Completado',    descripcion:'Plataforma digital para matrícula de estudiantes de colegios Comfenalco con carga de documentos.' },
+  { nombre:'Módulo de Becas y Subsidios Educativos',          proceso:'EDUCACIÓN',    estado:'En Ejecución',  descripcion:'Gestión de programas de becas, subsidios de estudio y fondos educativos para afiliados.' },
+  { nombre:'Plataforma Virtual de Educación para el Trabajo', proceso:'EDUCACIÓN',    estado:'En Ejecución',  descripcion:'LMS para cursos del SENA, técnicos laborales y certificaciones de competencias laborales.' },
+  { nombre:'Sistema de Gestión de Bibliotecas Digitales',     proceso:'EDUCACIÓN',    estado:'En Planeación', descripcion:'Catálogo digital de recursos bibliográficos, préstamos virtuales y bases de datos académicas.' },
+  { nombre:'Seguimiento Académico y Alertas Escolares',       proceso:'EDUCACIÓN',    estado:'Completado',    descripcion:'Plataforma de seguimiento de notas, asistencia y comunicación escuela-familia en tiempo real.' },
+  { nombre:'Registro de Programas de Formación SENA',         proceso:'EDUCACIÓN',    estado:'En Revisión',   descripcion:'Sistema de registro y reporte de programas de formación para el trabajo ante el SENA.' },
+
+  // ── RECREACIÓN Y DEPORTE ─────────────────────────────────────────────────
+  { nombre:'Sistema de Reservas Polideportivo',               proceso:'RECREACIÓN',   estado:'Completado',    descripcion:'Plataforma de reservas en línea para canchas, piscinas y escenarios deportivos Comfenalco.' },
+  { nombre:'App de Programas Recreodeportivos',               proceso:'RECREACIÓN',   estado:'En Ejecución',  descripcion:'Aplicación para inscripción, seguimiento y certificación de escuelas deportivas y clases.' },
+  { nombre:'Sistema de Torneos y Competencias Internas',      proceso:'RECREACIÓN',   estado:'En Planeación', descripcion:'Gestión de ligas, torneos corporativos, resultados y clasificaciones para afiliados.' },
+  { nombre:'Control de Aforo Digital - Centros Recreativos',  proceso:'RECREACIÓN',   estado:'Completado',    descripcion:'Sistema de control de acceso y aforo en tiempo real para centros recreativos y parques.' },
+  { nombre:'Módulo de Eventos Masivos y Festividades',        proceso:'RECREACIÓN',   estado:'En Ejecución',  descripcion:'Plataforma de inscripción y gestión logística de eventos masivos como ciclovías y fiestas.' },
+
+  // ── SALUD ────────────────────────────────────────────────────────────────
+  { nombre:'Historia Clínica Electrónica Comfenalco',         proceso:'SALUD',        estado:'En Ejecución',  descripcion:'Implementación de HCE interoperable para IPS Comfenalco con resolución MinSalud 839.' },
+  { nombre:'Telemedicina - Consultas Virtuales',              proceso:'SALUD',        estado:'Completado',    descripcion:'Plataforma de teleconsulta médica con videollamada, prescripción electrónica e integración HCE.' },
+  { nombre:'Sistema de Farmacia y Dispensación',              proceso:'SALUD',        estado:'En Ejecución',  descripcion:'Control de inventario farmacéutico, dispensación automatizada y trazabilidad de medicamentos.' },
+  { nombre:'Módulo de Vacunación y Salud Pública',            proceso:'SALUD',        estado:'Completado',    descripcion:'Registro de dosis, inventario de biológicos y reporte a PAIWEB del Ministerio de Salud.' },
+  { nombre:'Integración RIPS - Facturación IPS',              proceso:'SALUD',        estado:'En Ejecución',  descripcion:'Generación automática de RIPS y facturación electrónica en salud para EPS e IPS contratadas.' },
+  { nombre:'App de Bienestar y Hábitos Saludables',           proceso:'SALUD',        estado:'En Planeación', descripcion:'Aplicación móvil de seguimiento de indicadores de salud, retos wellness y programas preventivos.' },
+  { nombre:'Sistema de Gestión Laboratorio Clínico',          proceso:'SALUD',        estado:'En Revisión',   descripcion:'LIS para gestión de órdenes, procesamiento, resultados y entrega digital de exámenes de laboratorio.' },
+
+  // ── INFRAESTRUCTURA TI ───────────────────────────────────────────────────
+  { nombre:'Migración a Cloud Híbrido Azure/On-Premise',      proceso:'INFRAESTRUCTURA TI', estado:'En Ejecución',  descripcion:'Migración progresiva de cargas de trabajo a Azure manteniendo datacenter local para sistemas críticos.' },
+  { nombre:'Implementación SD-WAN Sedes Regionales',          proceso:'INFRAESTRUCTURA TI', estado:'En Ejecución',  descripcion:'Despliegue de red SD-WAN en todas las sedes para optimizar conectividad y reducir costos.' },
+  { nombre:'Centro de Operaciones de Seguridad - SOC',        proceso:'INFRAESTRUCTURA TI', estado:'En Planeación', descripcion:'Implementación de SOC interno con SIEM, monitoreo 24/7 y respuesta a incidentes de ciberseguridad.' },
+  { nombre:'Renovación Core Networking - Switches y Firewall',proceso:'INFRAESTRUCTURA TI', estado:'Completado',    descripcion:'Reemplazo de equipos de red activos: switches core, distribución y firewalls de siguiente generación.' },
+  { nombre:'Backup y Recuperación ante Desastres - DRP',      proceso:'INFRAESTRUCTURA TI', estado:'En Ejecución',  descripcion:'Implementación de estrategia 3-2-1 de backup y plan de recuperación ante desastres documentado.' },
+  { nombre:'Virtualización de Servidores - VMware vSphere',   proceso:'INFRAESTRUCTURA TI', estado:'Completado',    descripcion:'Consolidación de servidores físicos en plataforma VMware con alta disponibilidad y DRS.' },
+  { nombre:'Implementación MDM - Gestión de Dispositivos',    proceso:'INFRAESTRUCTURA TI', estado:'En Ejecución',  descripcion:'Plataforma de gestión de dispositivos móviles corporativos con políticas de seguridad y BYOD.' },
+  { nombre:'Renovación Infraestructura de Escritorios',       proceso:'INFRAESTRUCTURA TI', estado:'En Planeación', descripcion:'Plan de renovación de equipos de cómputo de usuario final con estándar actualizado de hardware.' },
+
+  // ── SEGURIDAD DE LA INFORMACIÓN ──────────────────────────────────────────
+  { nombre:'Implementación ISO 27001 - SGSI',                 proceso:'SEGURIDAD TI', estado:'En Ejecución',  descripcion:'Implementación del Sistema de Gestión de Seguridad de la Información bajo norma ISO 27001:2022.' },
+  { nombre:'Programa de Concientización en Ciberseguridad',   proceso:'SEGURIDAD TI', estado:'En Ejecución',  descripcion:'Campaña de formación en phishing, ingeniería social y buenas prácticas de seguridad digital.' },
+  { nombre:'Gestión de Identidades y Accesos - IAM',          proceso:'SEGURIDAD TI', estado:'Completado',    descripcion:'Solución IAM con SSO, MFA y gestión del ciclo de vida de identidades para usuarios corporativos.' },
+  { nombre:'Análisis de Vulnerabilidades y Pentesting',       proceso:'SEGURIDAD TI', estado:'En Revisión',   descripcion:'Evaluación periódica de seguridad, pruebas de penetración y plan de remediación de hallazgos.' },
+  { nombre:'DLP - Prevención de Pérdida de Datos',            proceso:'SEGURIDAD TI', estado:'En Planeación', descripcion:'Implementación de solución DLP para proteger información sensible en endpoints y correo electrónico.' },
+  { nombre:'Gestión de Certificados Digitales PKI',           proceso:'SEGURIDAD TI', estado:'En Ejecución',  descripcion:'Infraestructura PKI para emisión, gestión y revocación de certificados digitales corporativos.' },
+
+  // ── CONSOLA GIAS ─────────────────────────────────────────────────────────
+  { nombre:'Consola de Gestión GIAS - Módulo Central',        proceso:'GIAS',         estado:'En Ejecución',  descripcion:'Plataforma centralizada GIAS para gestión integral de afiliados y servicios Comfenalco.' },
+  { nombre:'GIAS - Integración con Sistemas Externos',        proceso:'GIAS',         estado:'En Ejecución',  descripcion:'Capa de integración de GIAS con ERP, RAYS, HCE y demás sistemas corporativos vía API REST.' },
+  { nombre:'GIAS - Módulo de Reportes Operativos',            proceso:'GIAS',         estado:'Completado',    descripcion:'Generador de informes operativos y estadísticos integrado en la consola GIAS.' },
+  { nombre:'GIAS - Migración de Datos Históricos',            proceso:'GIAS',         estado:'En Revisión',   descripcion:'Proceso ETL de migración de datos históricos del sistema legado a la nueva plataforma GIAS.' },
+  { nombre:'GIAS - Panel de Supervisión en Tiempo Real',      proceso:'GIAS',         estado:'En Planeación', descripcion:'Dashboard operativo en GIAS para supervisores con indicadores de servicio y colas de atención.' },
+
+  // ── GOBIERNO DIGITAL ─────────────────────────────────────────────────────
+  { nombre:'GEL - Trámites y Servicios en Línea',             proceso:'GOBIERNO DIGITAL', estado:'Completado',    descripcion:'Digitalización de trámites bajo lineamientos del Gobierno en Línea y política de accesibilidad.' },
+  { nombre:'Datos Abiertos - Portal Transparencia',           proceso:'GOBIERNO DIGITAL', estado:'En Ejecución',  descripcion:'Publicación de conjuntos de datos abiertos según ley de transparencia y acceso a la información.' },
+  { nombre:'Cero Papel - Firma Electrónica Avanzada',         proceso:'GOBIERNO DIGITAL', estado:'En Ejecución',  descripcion:'Implementación de firma electrónica avanzada para documentos internos y contratos digitales.' },
+  { nombre:'Protocolo de Atención Digital Ciudadanos',        proceso:'GOBIERNO DIGITAL', estado:'En Planeación', descripcion:'Estandarización de protocolos de atención digital multicanal según PQRSD y normativa MinTIC.' },
+  { nombre:'PQRSD Digital - Gestión Omnicanal',               proceso:'GOBIERNO DIGITAL', estado:'En Ejecución',  descripcion:'Sistema integral de PQRSD con recepción, radicación, seguimiento y respuesta por múltiples canales.' },
+
+  // ── ANALÍTICA DE DATOS ───────────────────────────────────────────────────
+  { nombre:'Data Warehouse Corporativo - BigQuery',           proceso:'ANALÍTICA',    estado:'En Ejecución',  descripcion:'Construcción del DWH corporativo en Google BigQuery con modelado dimensional y capa de integración.' },
+  { nombre:'Dashboards de Inteligencia de Negocios - Power BI',proceso:'ANALÍTICA',   estado:'Completado',    descripcion:'Suite de dashboards en Power BI para gerencia con actualización automática desde DWH.' },
+  { nombre:'Modelo Predictivo de Deserción de Afiliados',     proceso:'ANALÍTICA',    estado:'En Ejecución',  descripcion:'Modelo de machine learning para identificar riesgo de deserción de afiliados y proponer retención.' },
+  { nombre:'Analítica de Canales Digitales - GA4',            proceso:'ANALÍTICA',    estado:'Completado',    descripcion:'Implementación Google Analytics 4 con eventos personalizados y reportes de comportamiento digital.' },
+  { nombre:'Motor de Recomendaciones de Servicios',           proceso:'ANALÍTICA',    estado:'En Planeación', descripcion:'Sistema de recomendaciones personalizadas de servicios Comfenalco basado en perfil y comportamiento.' },
+  { nombre:'ETL Automatizado - Pipeline de Datos',            proceso:'ANALÍTICA',    estado:'En Revisión',   descripcion:'Pipeline de integración de datos con orquestación en Apache Airflow y transformaciones en dbt.' },
+  { nombre:'Gobierno de Datos - Catálogo Corporativo',        proceso:'ANALÍTICA',    estado:'En Planeación', descripcion:'Implementación de catálogo de datos, diccionario de datos y políticas de calidad e integridad.' }
+];
+*/
+
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+function normalizeText(text) {
+  return (text || '')
+    .normalize('NFD')
+    .replace(/[\x00-\x1F]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/�/g, 'n')
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function inferCoordinationTI(subdireccion, proceso, nombreProyecto = '') {
+  const subKey = normalizeText(subdireccion);
+  const procKey = normalizeText(proceso);
+  const pairKey = `${subKey}|${procKey}`;
+  const byPair = COORDINACION_TI_BY_SUB_PROCESO[pairKey];
+  if (byPair) return byPair;
+
+  const projectName = (nombreProyecto || '').toUpperCase();
+  if (subKey === 'estrategia' && projectName.includes('SAP')) return 'GERENCIA DE SAP';
+
+  return COORDINACION_TI_BY_SUBDIRECCION[subKey] || 'PROYECTOS Y DESARROLLO';
+}
+
+function getRecordValue(record, aliases, tokenMatchers = []) {
+  for (const alias of aliases) {
+    if (Object.prototype.hasOwnProperty.call(record, alias)) {
+      return record[alias];
+    }
+  }
+
+  const compactAliases = new Set(
+    aliases.map(alias => normalizeText(alias).replace(/\s+/g, ''))
+  );
+
+  for (const [key, value] of Object.entries(record)) {
+    const compactKey = normalizeText(key).replace(/\s+/g, '');
+    if (!compactKey) continue;
+    if (compactAliases.has(compactKey)) return value;
+
+    const matchesByTokens = tokenMatchers.some(tokens => tokens.every(token => compactKey.includes(token)));
+    if (matchesByTokens) return value;
+  }
+
+  return '';
+}
+
+function parseScore(value) {
+  if (value === null || value === undefined || value === '') return 0;
+  const normalized = String(value).replace(',', '.').replace(/[^0-9.-]/g, '');
+  const parsed = parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeProjectRecord(record) {
+  const subdireccion = getRecordValue(
+    record,
+    ['subdirección', 'subdireccion', 'subdirección beneficiada', 'subdirecciÃ³n'],
+    [['subdirecc']]
+  );
+  const proceso = getRecordValue(
+    record,
+    ['proceso', 'proceso beneficiado'],
+    [['proceso']]
+  );
+  const coordinacionTI = getRecordValue(
+    record,
+    ['coordinación ti', 'coordinacion ti', 'coordinacionTI', 'coordinacion', 'coordinaciÃ³n ti'],
+    [['coordinac', 'ti'], ['coordinac']]
+  );
+  const tipoProyecto = getRecordValue(
+    record,
+    ['tipo de proyecto', 'tipo proyecto', 'tipo', 'tipodeproyecto'],
+    [['tipo', 'proyecto'], ['tipo']]
+  );
+  const anio = getRecordValue(
+    record,
+    ['año', 'ano', 'anio', 'year'],
+    [['ano'], ['anio'], ['year']]
+  );
+  const ptsAutoevaluacion = parseScore(getRecordValue(
+    record,
+    ['pts autoevaluacion', 'pts auto evaluación', 'ptsautoevaluacion'],
+    [['pts', 'autoevaluacion'], ['pts', 'autoevaluacion']]
+  ));
+  const ptsComite = parseScore(getRecordValue(
+    record,
+    ['pts comité', 'pts comite', 'ptscomite'],
+    [['pts', 'comite']]
+  ));
+  const ptsDireccion = parseScore(getRecordValue(
+    record,
+    ['pts direccion', 'ptsdireccion'],
+    [['pts', 'direccion']]
+  ));
+  const ptsTotal = parseScore(getRecordValue(
+    record,
+    ['pts total', 'ptstotal'],
+    [['pts', 'total']]
+  ));
+  const nombre = getRecordValue(record, ['nombre', 'proyecto', 'nombre del proyecto'], [['nombre']]);
+  let estado = String(getRecordValue(record, ['estado'], [['estado']]) || '').toUpperCase();
+  if (estado === 'ESTABILIZACIÓN' || estado === 'ESTABILIZAACION') estado = 'ESTABILIZACION';
+  if (estado === 'EN FORMULA' || estado === 'EN FORMULACION') estado = 'EN FORMULACIÓN';
+  if (estado && !ESTADOS[estado]) estado = 'POR FORMULAR';
+  const avance = getRecordValue(record, ['avance', '% avance', 'porcentaje avance'], [['avance']]);
+  const descripcion = getRecordValue(record, ['descripcion', 'descripción'], [['descripcion']]);
+  return {
+    ...record,
+    nombre,
+    subdirección: subdireccion || 'SIN SUBDIRECCIÓN',
+    proceso: proceso || 'SIN PROCESO',
+    'coordinación ti': coordinacionTI || inferCoordinationTI(subdireccion, proceso, nombre),
+    'tipo de proyecto': String(tipoProyecto || 'SIN TIPO').trim(),
+    'año': String(anio || 'SIN AÑO').trim().replace(/^SIN ANO$/i, 'SIN AÑO'),
+    'pts autoevaluacion': ptsAutoevaluacion,
+    'pts comite': ptsComite,
+    'pts direccion': ptsDireccion,
+    'pts total': ptsTotal,
+    estado: estado || 'POR FORMULAR',
+    avance: avance || '0%',
+    descripcion: descripcion || ''
+  };
+}
+
+let projects = (JSON.parse(localStorage.getItem('portfolio_projects') || 'null') || DEFAULT_PROJECTS)
+  .map(normalizeProjectRecord);
+let chartDonut = null, chartBar = null, chartLine = null, chartStacked = null, chartRadar = null;
+
+// ═══════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════
+function getBadgeHTML(estado) {
+  const e = ESTADOS[estado] || { bg:'bg-slate-100', text:'text-slate-600', icon:'fa-circle', label: estado };
+  return `<span class="badge ${e.bg} ${e.text}"><i class="fa-solid ${e.icon} text-[10px]"></i>${e.label}</span>`;
+}
+
+function getStateCounts(data) {
+  const c = {};
+  Object.keys(ESTADOS).forEach(k => c[k] = 0);
+  data.forEach(p => { if (c[p.estado] !== undefined) c[p.estado]++; else c[p.estado] = 1; });
+  return c;
+}
+
+function getProcesoGroups(data) {
+  const g = {};
+  data.forEach(p => { 
+    const key = p.proceso || (p.subdirección || 'SIN PROCESO');
+    if (!g[key]) g[key] = []; 
+    g[key].push(p); 
+  });
+  return g;
+}
+
+function getSubdirectionGroups(data) {
+  const g = {};
+  data.forEach(p => { 
+    const key = p.subdirección || (p.proceso || 'SIN SUBDIRECCIÓN');
+    if (!g[key]) g[key] = []; 
+    g[key].push(p); 
+  });
+  return g;
+}
+
+function getCoordinationGroups(data) {
+  const g = {};
+  data.forEach(p => {
+    const key = p['coordinación ti'] || 'SIN COORDINACIÓN TI';
+    if (!g[key]) g[key] = [];
+    g[key].push(p);
+  });
+  return g;
+}
+
+function updateSortControlVisibility() {
+  const sortSelect = document.getElementById('sortByFilter');
+  const groupBy = document.getElementById('groupByFilter').value;
+  sortSelect.classList.toggle('hidden', groupBy !== 'general');
+}
+
+function getProjectScore(project, key) {
+  return Number(project[key] || 0);
+}
+
+function sortProjectsForGeneralView(data) {
+  const sortBy = document.getElementById('sortByFilter').value;
+  const sorted = [...data];
+  if (sortBy === 'nombre') {
+    return sorted.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+  }
+  return sorted.sort((a, b) => {
+    const diff = getProjectScore(b, sortBy) - getProjectScore(a, sortBy);
+    if (diff !== 0) return diff;
+    return a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' });
+  });
+}
+
+function getGroupByMode(data, mode) {
+  if (mode === 'subdirección') return getSubdirectionGroups(data);
+  if (mode === 'coordinación ti') return getCoordinationGroups(data);
+  return getProcesoGroups(data);
+}
+
+function getStatsGroupMode() {
+  const select = document.getElementById('statsGroupBy');
+  return select ? select.value : 'proceso';
+}
+
+function getStatsGroups(data) {
+  return getGroupByMode(data, getStatsGroupMode());
+}
+
+function getStatsDimensionLabel() {
+  return STATS_GROUP_LABELS[getStatsGroupMode()] || 'Proceso';
+}
+
+function updateStatsTitles() {
+  const label = getStatsDimensionLabel();
+  const pluralLabel = label === 'Coordinación TI' ? 'Coordinaciones TI' : `${label}s`;
+  document.getElementById('barChartTitle').innerHTML = `<i class="fa-solid fa-chart-bar text-blue-600"></i> Proyectos por ${label}`;
+  document.getElementById('barChartSubtitle').textContent = `Cantidad de proyectos agrupados por ${label.toLowerCase()}`;
+  document.getElementById('stackedChartTitle').innerHTML = `<i class="fa-solid fa-chart-bar text-purple-600"></i> Estado por ${label} (Apilado)`;
+  document.getElementById('stackedChartSubtitle').textContent = `Composición de estados dentro de cada ${label.toLowerCase()}`;
+  document.getElementById('radarChartTitle').innerHTML = `<i class="fa-solid fa-gauge-high text-orange-500"></i> Top 5 ${pluralLabel} Críticos`;
+  document.getElementById('radarChartSubtitle').textContent = `${pluralLabel} con más proyectos en estado crítico o detenido`;
+  document.getElementById('summaryTitle').innerHTML = `<i class="fa-solid fa-table-list text-slate-600"></i> Resumen por ${label}`;
+  document.getElementById('summarySubtitle').textContent = `Tabla detallada con métricas por ${label.toLowerCase()}`;
+  document.getElementById('summaryDimensionHeader').textContent = label;
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER KPI CARDS
+// ═══════════════════════════════════════════════
+function renderKPIs(containerId, data) {
+  const counts = getStateCounts(data);
+  const total = data.length;
+  const items = [
+    { label:'Total', val: total, icon:'fa-layer-group', color:'bg-blue-950', text:'text-white' },
+    { label:'EN DESARROLLO', val: counts['EN DESARROLLO'] || 0, icon:'fa-spinner', color:'bg-blue-800', text:'text-white' },
+    { label:'FINALIZADO', val: counts['FINALIZADO'] || 0, icon:'fa-circle-check', color:'bg-blue-700', text:'text-white' },
+    { label:'POR FORMULAR', val: counts['POR FORMULAR'] || 0, icon:'fa-file-pen', color:'bg-blue-600', text:'text-white' },
+    { label:'EN FORMULACIÓN', val: counts['EN FORMULACIÓN'] || 0, icon:'fa-pencil', color:'bg-blue-500', text:'text-white' },
+    { label:'SUSPENDIDO', val: counts['SUSPENDIDO'] || 0, icon:'fa-circle-pause', color:'bg-blue-400', text:'text-white' },
+  ];
+  document.getElementById(containerId).innerHTML = items.map(i => `
+    <div class="rounded-2xl ${i.color} ${i.text} p-4 flex items-center gap-3 shadow-sm">
+      <div class="text-2xl opacity-80"><i class="fa-solid ${i.icon}"></i></div>
+      <div>
+        <div class="text-2xl font-extrabold leading-none">${i.val}</div>
+        <div class="text-xs mt-0.5 opacity-80">${i.label}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  POPULATE FILTERS
+// ═══════════════════════════════════════════════
+function populateFilters() {
+  const states = [...new Set(projects.map(p => p.estado))].sort();
+  const procs  = [...new Set(projects.map(p => p.proceso))].sort();
+  const coords = [...new Set(projects.map(p => p['coordinación ti'] || 'SIN COORDINACIÓN TI'))].sort();
+  const tipos = [...new Set(projects.map(p => p['tipo de proyecto'] || 'SIN TIPO'))].sort();
+  const anios = [...new Set(projects.map(p => p['año'] || 'SIN AÑO'))].sort((a, b) => String(b).localeCompare(String(a)));
+  ['estadoFilter','masterFilter'].forEach(id => {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Todos los estados</option>' +
+      states.map(s => `<option value="${s}">${s}</option>`).join('');
+    if (cur) sel.value = cur;
+  });
+  const pf = document.getElementById('procesoFilter');
+  const pfCur = pf.value;
+  pf.innerHTML = '<option value="">Todos los procesos</option>' +
+    procs.map(p => `<option value="${p}">${p}</option>`).join('');
+  if (pfCur) pf.value = pfCur;
+
+  const cf = document.getElementById('coordFilter');
+  const cfCur = cf.value;
+  cf.innerHTML = '<option value="">Todas las coordinaciones TI</option>' +
+    coords.map(c => `<option value="${c}">${c}</option>`).join('');
+  if (cfCur) cf.value = cfCur;
+
+  const tf = document.getElementById('tipoProyectoFilter');
+  const tfCur = tf.value;
+  tf.innerHTML = '<option value="">Todos los tipos</option>' +
+    tipos.map(t => `<option value="${t}">${t}</option>`).join('');
+  if (tfCur) tf.value = tfCur;
+
+  const af = document.getElementById('anioFilter');
+  const afCur = af.value;
+  af.innerHTML = '<option value="">Todos los años</option>' +
+    anios.map(a => `<option value="${a}">${a}</option>`).join('');
+  if (afCur) af.value = afCur;
+}
+
+// ═══════════════════════════════════════════════
+//  TAB 1 — PROJECT LISTING
+// ═══════════════════════════════════════════════
+function filterProjects() {
+  updateSortControlVisibility();
+  const q     = document.getElementById('searchInput').value.toLowerCase();
+  const estad = document.getElementById('estadoFilter').value;
+  const proc  = document.getElementById('procesoFilter').value;
+  const coord = document.getElementById('coordFilter').value;
+  const tipo  = document.getElementById('tipoProyectoFilter').value;
+  const anio  = document.getElementById('anioFilter').value;
+  const filtered = projects.filter(p =>
+    (
+      p.nombre.toLowerCase().includes(q) ||
+      p.subdirección.toLowerCase().includes(q) ||
+      p.proceso.toLowerCase().includes(q) ||
+      (p['coordinación ti'] || '').toLowerCase().includes(q) ||
+      (p['tipo de proyecto'] || '').toLowerCase().includes(q) ||
+      String(p['año'] || '').toLowerCase().includes(q) ||
+      p.descripcion.toLowerCase().includes(q)
+    ) &&
+    (!estad || p.estado === estad) &&
+    (!proc  || p.proceso === proc) &&
+    (!coord || (p['coordinación ti'] || 'SIN COORDINACIÓN TI') === coord) &&
+    (!tipo || (p['tipo de proyecto'] || 'SIN TIPO') === tipo) &&
+    (!anio || (p['año'] || 'SIN AÑO') === anio)
+  );
+  renderKPIs('kpiCards', filtered);
+  renderAccordions(filtered);
+  document.getElementById('resultCount').textContent =
+    `Mostrando ${filtered.length} de ${projects.length} proyectos`;
+}
+
+function clearFilters() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('estadoFilter').value = '';
+  document.getElementById('procesoFilter').value = '';
+  document.getElementById('coordFilter').value = '';
+  document.getElementById('tipoProyectoFilter').value = '';
+  document.getElementById('anioFilter').value = '';
+  document.getElementById('groupByFilter').value = 'general';
+  document.getElementById('sortByFilter').value = 'pts total';
+  filterProjects();
+}
+
+function renderProjectCards(items) {
+  return items.map(p => `
+      <div class="card-project bg-white rounded-xl border border-slate-200 p-4 flex flex-col md:flex-row md:items-start gap-3">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-start gap-2 mb-1">
+            <h4 class="font-semibold text-slate-800 text-sm leading-snug">${p.nombre}</h4>
+            ${getBadgeHTML(p.estado)}
+          </div>
+          <p class="text-xs text-slate-500 leading-relaxed">${p.descripcion}</p>
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <span class="badge bg-blue-50 text-blue-700">Auto: ${p['pts autoevaluacion'] || 0}</span>
+            <span class="badge bg-cyan-50 text-cyan-700">Comité: ${p['pts comite'] || 0}</span>
+            <span class="badge bg-purple-50 text-purple-700">Dirección: ${p['pts direccion'] || 0}</span>
+            <span class="badge bg-amber-50 text-amber-700">Total: ${p['pts total'] || 0}</span>
+          </div>
+          <button
+            type="button"
+            onclick="openProjectModal('${encodeURIComponent(p.nombre || '')}','${encodeURIComponent(p.descripcion || '')}','${encodeURIComponent(p['tipo de proyecto'] || '')}','${encodeURIComponent(p['año'] || '')}','${encodeURIComponent(String(p['pts autoevaluacion'] || 0))}','${encodeURIComponent(String(p['pts comite'] || 0))}','${encodeURIComponent(String(p['pts direccion'] || 0))}','${encodeURIComponent(String(p['pts total'] || 0))}')"
+            class="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:text-blue-800">
+            <i class="fa-solid fa-up-right-and-down-left-from-center text-[10px]"></i> Ver detalle
+          </button>
+        </div>
+        <div class="text-xs text-slate-500 whitespace-nowrap mt-1 md:mt-0 space-y-1">
+          <div class="flex items-center gap-1"><i class="fa-solid fa-sitemap"></i> ${p.subdirección}</div>
+          <div class="flex items-center gap-1"><i class="fa-solid fa-building-columns"></i> ${p.proceso}</div>
+          <div class="flex items-center gap-1"><i class="fa-solid fa-people-group"></i> ${p['coordinación ti'] || 'SIN COORDINACIÓN TI'}</div>
+          <div class="flex items-center gap-1"><i class="fa-solid fa-diagram-project"></i> ${p['tipo de proyecto'] || 'SIN TIPO'}</div>
+          <div class="flex items-center gap-1"><i class="fa-solid fa-calendar-days"></i> ${p['año'] || 'SIN AÑO'}</div>
+        </div>
+      </div>`).join('');
+}
+
+function renderAccordions(data) {
+  const groupByValue = document.getElementById('groupByFilter').value;
+  if (groupByValue === 'general') {
+    const container = document.getElementById('accordionContainer');
+    if (!data.length) {
+      container.innerHTML = `<div class="text-center py-16 text-slate-400">
+        <i class="fa-solid fa-magnifying-glass text-5xl mb-4 opacity-30"></i>
+        <p class="text-lg font-semibold">No se encontraron proyectos</p>
+        <p class="text-sm">Intenta con otros filtros o términos de búsqueda</p></div>`;
+      return;
+    }
+    const sorted = sortProjectsForGeneralView(data);
+    container.innerHTML = `<div class="mb-4 rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
+      <div class="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <i class="fa-solid fa-list-ul text-blue-400"></i>
+          <span class="font-bold tracking-wide text-sm">Vista general</span>
+          <span class="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">${sorted.length}</span>
+        </div>
+        <span class="text-xs text-slate-300">Orden actual: ${document.getElementById('sortByFilter').selectedOptions[0].text}</span>
+      </div>
+      <div class="p-4 bg-slate-50 grid grid-cols-1 xl:grid-cols-2 gap-3">${renderProjectCards(sorted)}</div>
+    </div>`;
+    return;
+  }
+  const groups =
+    groupByValue === 'subdirección' ? getSubdirectionGroups(data) :
+    groupByValue === 'coordinación ti' ? getCoordinationGroups(data) :
+    getProcesoGroups(data);
+  const container = document.getElementById('accordionContainer');
+  if (!data.length) {
+    container.innerHTML = `<div class="text-center py-16 text-slate-400">
+      <i class="fa-solid fa-magnifying-glass text-5xl mb-4 opacity-30"></i>
+      <p class="text-lg font-semibold">No se encontraron proyectos</p>
+      <p class="text-sm">Intenta con otros filtros o términos de búsqueda</p></div>`;
+    return;
+  }
+  container.innerHTML = Object.entries(groups).map(([proc, items]) => {
+    const counts = getStateCounts(items);
+    const badges = Object.entries(counts)
+      .filter(([,v]) => v > 0)
+      .map(([k,v]) => `<span class="badge ${ESTADOS[k]?.bg||'bg-slate-100'} ${ESTADOS[k]?.text||'text-slate-600'}">${v} ${k}</span>`)
+      .join('');
+    const cards = renderProjectCards(items);
+
+    return `<div class="mb-4 rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
+      <button class="accordion-toggle w-full flex items-center justify-between bg-slate-900 text-white px-5 py-3.5 hover:bg-slate-800 transition text-left"
+        onclick="toggleAccordion(this)">
+        <div class="flex items-center gap-3">
+          <i class="fa-solid fa-folder-open text-blue-400"></i>
+          <span class="font-bold tracking-wide text-sm">${proc}</span>
+          <span class="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">${items.length}</span>
+          <div class="hidden md:flex gap-1 flex-wrap">${badges}</div>
+        </div>
+        <i class="fa-solid fa-chevron-down transition-transform duration-300 text-slate-400"></i>
+      </button>
+      <div class="accordion-content open">
+        <div class="p-4 bg-slate-50 grid grid-cols-1 xl:grid-cols-2 gap-3">${cards}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleAccordion(btn) {
+  const content = btn.nextElementSibling;
+  const icon = btn.querySelector('.fa-chevron-down');
+  content.classList.toggle('open');
+  icon.style.transform = content.classList.contains('open') ? 'rotate(180deg)' : 'rotate(0)';
+}
+
+function openProjectModal(nombreEncoded, descripcionEncoded, tipoEncoded, anioEncoded, ptsAutoEncoded, ptsComiteEncoded, ptsDireccionEncoded, ptsTotalEncoded) {
+  const modal = document.getElementById('projectDetailModal');
+  const name = decodeURIComponent(nombreEncoded || '');
+  const description = decodeURIComponent(descripcionEncoded || '');
+  const tipo = decodeURIComponent(tipoEncoded || '');
+  const anio = decodeURIComponent(anioEncoded || '');
+  const ptsAuto = decodeURIComponent(ptsAutoEncoded || '0');
+  const ptsComite = decodeURIComponent(ptsComiteEncoded || '0');
+  const ptsDireccion = decodeURIComponent(ptsDireccionEncoded || '0');
+  const ptsTotal = decodeURIComponent(ptsTotalEncoded || '0');
+  document.getElementById('projectDetailName').textContent = name || 'Sin nombre';
+  document.getElementById('projectDetailType').textContent = tipo || 'SIN TIPO';
+  document.getElementById('projectDetailYear').textContent = anio || 'SIN AÑO';
+  document.getElementById('projectDetailPtsAuto').textContent = ptsAuto || '0';
+  document.getElementById('projectDetailPtsComite').textContent = ptsComite || '0';
+  document.getElementById('projectDetailPtsDireccion').textContent = ptsDireccion || '0';
+  document.getElementById('projectDetailPtsTotal').textContent = ptsTotal || '0';
+  document.getElementById('projectDetailDescription').textContent = description || 'Sin descripción disponible.';
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+function closeProjectModal() {
+  const modal = document.getElementById('projectDetailModal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+// ═══════════════════════════════════════════════
+//  TAB 2 — CHARTS
+// ═══════════════════════════════════════════════
+function getFilteredData() {
+  const f = document.getElementById('masterFilter').value;
+  return f ? projects.filter(p => p.estado === f) : projects;
+}
+
+function updateCharts() {
+  const data = getFilteredData();
+  const counts = getStateCounts(data);
+  const label = document.getElementById('statsTotalLabel');
+  label.textContent = `${data.length} proyecto(s) en la selección`;
+
+  updateStatsTitles();
+  renderKPIs('statsKPI', data);
+  buildDonut(counts);
+  buildBar(data);
+  buildStacked(data);
+  buildRadar(data);
+  buildSummaryTable(data);
+}
+
+// Palette
+const PALETTE = Object.values(ESTADOS).map(e => e.color);
+
+function buildDonut(counts) {
+  const labels = Object.keys(counts).filter(k => counts[k] > 0);
+  const vals   = labels.map(k => counts[k]);
+  const total  = vals.reduce((a,b) => a+b, 0);
+  const colors = labels.map(k => ESTADOS[k]?.color || '#94a3b8');
+
+  if (chartDonut) chartDonut.destroy();
+  chartDonut = new Chart(document.getElementById('donutChart'), {
+    type: 'doughnut',
+    plugins: [ChartDataLabels],
+    data: { labels, datasets: [{ data: vals, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 8 }] },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      cutout: '60%',
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 14 } },
+        datalabels: {
+          color: '#fff', font: { weight: 'bold', size: 11 },
+          formatter: (val) => val > 0 ? `${((val/total)*100).toFixed(1)}%` : '',
+          display: ctx => ctx.dataset.data[ctx.dataIndex] > 0
+        },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} (${((ctx.raw/total)*100).toFixed(1)}%)` } }
+      }
+    }
+  });
+}
+
+function buildBar(data) {
+  const groups = getStatsGroups(data);
+  const labels = Object.keys(groups).sort((a,b) => groups[b].length - groups[a].length);
+  const vals   = labels.map(k => groups[k].length);
+  const maxV   = Math.max(...vals);
+  const colors = vals.map(v => v === maxV ? '#1d4ed8' : '#3b82f6');
+
+  if (chartBar) chartBar.destroy();
+  chartBar = new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    plugins: [ChartDataLabels],
+    data: { labels, datasets: [{ label: 'Proyectos', data: vals, backgroundColor: colors, borderRadius: 6, borderSkipped: false }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        datalabels: { anchor: 'end', align: 'top', color: '#475569', font: { weight: 'bold', size: 11 }, formatter: v => v }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45 } },
+        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { stepSize: 1 } }
+      }
+    }
+  });
+}
+
+function buildLine(data) {
+  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const completed = [2,5,9,14,19,25,32,38,45,53,62,72].map(v => Math.min(v, data.filter(p=>p.estado==='FINALIZADO').length));
+  const inProgress = [10,14,18,22,25,28,26,24,22,20,18,16];
+
+  if (chartLine) chartLine.destroy();
+  chartLine = new Chart(document.getElementById('lineChart'), {
+    type: 'line',
+    data: { labels: months, datasets: [
+      { label:'Finalizados (Acum.)', data: completed, borderColor:'#22c55e', backgroundColor:'rgba(34,197,94,.1)', fill: true, tension: .4, pointRadius: 4 },
+      { label:'En Desarrollo', data: inProgress, borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.08)', fill: true, tension: .4, pointRadius: 4 }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position:'bottom', labels: { font: { size: 11 } } }, datalabels: { display: false } },
+      scales: { x: { grid: { display:false } }, y: { beginAtZero: true, grid: { color:'#f1f5f9' } } }
+    }
+  });
+}
+
+function buildStacked(data) {
+  const groups = getStatsGroups(data);
+  const procs  = Object.keys(groups).sort();
+  const states = Object.keys(ESTADOS);
+  const datasets = states.map(s => ({
+    label: s,
+    data: procs.map(p => groups[p] ? groups[p].filter(pr => pr.estado === s).length : 0),
+    backgroundColor: ESTADOS[s].color,
+    borderRadius: 4
+  })).filter(d => d.data.some(v => v > 0));
+
+  if (chartStacked) chartStacked.destroy();
+  chartStacked = new Chart(document.getElementById('stackedChart'), {
+    type: 'bar',
+    data: { labels: procs, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position:'bottom', labels: { font:{size:10}, boxWidth: 12 } }, datalabels: { display: false } },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { font:{size:9}, maxRotation: 45 } },
+        y: { stacked: true, beginAtZero: true, grid: { color:'#f1f5f9' } }
+      }
+    }
+  });
+}
+
+function buildRadar(data) {
+  const groups = getStatsGroups(data);
+  const critical = Object.entries(groups)
+    .map(([p, items]) => ({ p, v: items.filter(i => i.estado==='SUSPENDIDO'||i.estado==='DETENIDO'||i.estado==='CANCELADO').length }))
+    .sort((a,b) => b.v - a.v).slice(0,7);
+  const labels = critical.map(c => c.p);
+  const vals   = critical.map(c => c.v);
+
+  if (chartRadar) chartRadar.destroy();
+  chartRadar = new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: { labels, datasets: [{
+      label: 'Proyectos en riesgo',
+      data: vals,
+      backgroundColor: 'rgba(239,68,68,.15)',
+      borderColor: '#ef4444',
+      pointBackgroundColor: '#ef4444',
+      pointRadius: 5
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false }, datalabels: { display: false } },
+      scales: { r: { beginAtZero: true, ticks: { stepSize: 1, font:{size:9} }, pointLabels: { font:{size:10} } } }
+    }
+  });
+}
+
+function buildSummaryTable(data) {
+  const groups = getStatsGroups(data);
+  const tbody = document.getElementById('summaryTable');
+  const rows = Object.entries(groups).sort((a,b) => b[1].length - a[1].length).map(([proc, items], i) => {
+    const s = getStateCounts(items);
+    const done = (s['FINALIZADO'] || 0);
+    const pct  = items.length ? Math.round((done / items.length)*100) : 0;
+    const barColor = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-blue-500' : 'bg-amber-500';
+    return `<tr class="${i%2===0?'bg-white':'bg-slate-50'} hover:bg-blue-50 transition">
+      <td class="px-3 py-2 font-semibold text-slate-800 whitespace-nowrap">${proc}</td>
+      <td class="px-3 py-2 text-center font-bold text-slate-900">${items.length}</td>
+      <td class="px-3 py-2 text-center"><span class="badge bg-blue-100 text-blue-700">${s['EN DESARROLLO']||0}</span></td>
+      <td class="px-3 py-2 text-center"><span class="badge bg-green-100 text-green-700">${s['FINALIZADO']||0}</span></td>
+      <td class="px-3 py-2 text-center"><span class="badge bg-orange-100 text-orange-700">${s['EN FORMULACIÓN']||0}</span></td>
+      <td class="px-3 py-2 text-center"><span class="badge bg-red-100 text-red-700">${s['SUSPENDIDO']||0}</span></td>
+      <td class="px-3 py-2">
+        <div class="flex items-center gap-2">
+          <div class="flex-1 bg-slate-200 rounded-full h-2"><div class="${barColor} h-2 rounded-full" style="width:${pct}%"></div></div>
+          <span class="font-bold text-slate-700 w-8 text-right">${pct}%</span>
+        </div>
+      </td>
+    </tr>`;
+  });
+  tbody.innerHTML = rows.join('');
+}
+
+// ═══════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════
+function switchTab(tab, btn) {
+  document.querySelectorAll('[id^=tab]').forEach(s => s.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.classList.add('text-slate-500'); });
+  document.getElementById(tab).classList.remove('hidden');
+  btn.classList.add('active'); btn.classList.remove('text-slate-500');
+  if (tab === 'tab2') { buildLine(getFilteredData()); updateCharts(); }
+}
+
+// ═══════════════════════════════════════════════
+//  IMPORT / EXPORT
+// ═══════════════════════════════════════════════
+function openImportModal()  { document.getElementById('importModal').classList.add('show'); }
+function closeImportModal() { document.getElementById('importModal').classList.remove('show'); }
+
+function handleCSVImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const raw = e.target.result.replace(/\r/g, '');
+      const lines = raw.split('\n').filter(l => l.trim());
+      const delimiter = (lines[0].match(/;/g) || []).length >= (lines[0].match(/,/g) || []).length ? ';' : ',';
+      const splitCSVLine = (line, sep) => {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let index = 0; index < line.length; index++) {
+          const char = line[index];
+          if (char === '"') {
+            if (inQuotes && line[index + 1] === '"') {
+              current += '"';
+              index++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (char === sep && !inQuotes) {
+            result.push(current);
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        result.push(current);
+        return result.map(value => value.trim());
+      };
+      const normalize = (text) => (text || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/�/g, 'N')
+        .toLowerCase()
+        .replace(/"/g, '')
+        .trim();
+      const normalizedHeaders = splitCSVLine(lines[0], delimiter).map(h => normalize(h));
+      const normalizedKey = (value) => normalize(value).replace(/[^a-z0-9]/g, '');
+      const canonicalHeaders = normalizedHeaders.map(normalizedKey);
+      const findHeaderIndex = (aliases) => canonicalHeaders.findIndex(h => aliases.includes(h));
+
+      const si = findHeaderIndex(['subdireccion']);
+      const pbi = findHeaderIndex(['procesobeneficiado', 'proceso']);
+      const ci = findHeaderIndex(['coordinacionti', 'coordinacion']);
+      const ti = findHeaderIndex(['tipodeproyecto', 'tipoproyecto', 'tipo']);
+      const yi = findHeaderIndex(['ano', 'anio', 'año', 'year']);
+      const ei = findHeaderIndex(['estado']);
+      const pai = findHeaderIndex(['ptsautoevaluacion']);
+      const pci = findHeaderIndex(['ptscomite']);
+      const pdi = findHeaderIndex(['ptsdireccion']);
+      const pti = findHeaderIndex(['ptstotal']);
+      const ai = findHeaderIndex(['avance', 'porcentajeavance']);
+      const pi = findHeaderIndex(['proyecto', 'nombreproyecto']);
+      const di = findHeaderIndex(['descripcion']);
+
+      if (si < 0 || pbi < 0 || ci < 0 || ti < 0 || yi < 0 || ei < 0 || pai < 0 || pci < 0 || pdi < 0 || pti < 0 || pi < 0) {
+        alert('❌ Columnas requeridas: SUBDIRECCIÓN; PROCESO BENEFICIADO; COORDINACIÓN TI; TIPO DE PROYECTO; AÑO; ESTADO; PTS AUTOEVALUACION; PTS COMITÉ; PTS DIRECCION; PTS TOTAL; % AVANCE; PROYECTO; DESCRIPCION');
+        return;
+      }
+      const imported = lines.slice(1).map(l => {
+        const cols = splitCSVLine(l, delimiter).map(c => c.replace(/^"|"$/g,''));
+        const subdireccion = cols[si] || '';
+        const procesoBeneficiado = cols[pbi] || '';
+        const coordinacionTI = cols[ci] || '';
+        const tipoProyecto = cols[ti] || '';
+        const anio = cols[yi] || '';
+        return {
+          nombre: cols[pi] || '',
+          subdirección: subdireccion,
+          proceso: procesoBeneficiado || 'SIN PROCESO',
+          'coordinación ti': coordinacionTI || 'SIN COORDINACIÓN TI',
+          'tipo de proyecto': tipoProyecto || 'SIN TIPO',
+          'año': anio || 'SIN AÑO',
+          estado: (cols[ei] || 'POR FORMULAR').toUpperCase(),
+          'pts autoevaluacion': pai >= 0 ? (cols[pai] || '0') : '0',
+          'pts comite': pci >= 0 ? (cols[pci] || '0') : '0',
+          'pts direccion': pdi >= 0 ? (cols[pdi] || '0') : '0',
+          'pts total': pti >= 0 ? (cols[pti] || '0') : '0',
+          avance: ai >= 0 ? (cols[ai] || '0%') : '0%',
+          descripcion: cols[di] || ''
+        };
+      }).filter(p => p.nombre).map(normalizeProjectRecord);
+      if (!imported.length) { alert('⚠️ No se encontraron registros válidos.'); return; }
+      projects = imported;
+      localStorage.setItem('portfolio_projects', JSON.stringify(projects));
+      closeImportModal();
+      initDashboard();
+      alert(`✅ ${imported.length} proyectos importados correctamente.`);
+    } catch(err) { alert('❌ Error al procesar el archivo. Verifica el formato CSV.'); }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function resetToDefault() {
+  if (confirm('¿Restaurar los datos por defecto? Se perderán los datos importados.')) {
+    resetLocalData(false);
+    closeImportModal();
+  }
+}
+
+function resetLocalData(showAlert = true) {
+  localStorage.removeItem('portfolio_projects');
+  projects = DEFAULT_PROJECTS.map(normalizeProjectRecord);
+  initDashboard();
+  if (showAlert) {
+    alert('✅ Datos locales restablecidos correctamente.');
+  }
+}
+
+function exportToExcel() {
+  const header = 'SUBDIRECCIÓN;PROCESO BENEFICIADO;COORDINACIÓN TI;TIPO DE PROYECTO;AÑO;ESTADO;PTS AUTOEVALUACION;PTS COMITÉ;PTS DIRECCION;PTS TOTAL;% AVANCE;PROYECTO;DESCRIPCION\n';
+  const rows = projects.map(p =>
+    `"${p.subdirección || ''}";"${p.proceso || ''}";"${p['coordinación ti'] || 'SIN COORDINACIÓN TI'}";"${p['tipo de proyecto'] || 'SIN TIPO'}";"${p['año'] || 'SIN AÑO'}";"${p.estado}";"${p['pts autoevaluacion'] || 0}";"${p['pts comite'] || 0}";"${p['pts direccion'] || 0}";"${p['pts total'] || 0}";"${p.avance||''}";"${p.nombre}";"${p.descripcion}"`
+  ).join('\n');
+  const blob = new Blob(['\uFEFF'+header+rows], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a'); a.href=url; a.download='portafolio_ti_2026.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+function initDashboard() {
+  document.getElementById('currentDate').textContent = new Date().toLocaleDateString('es-CO', { day:'2-digit', month:'long', year:'numeric' });
+  document.getElementById('headerCount').textContent = `${projects.length} proyectos`;
+  projects = projects.map(normalizeProjectRecord);
+  updateSortControlVisibility();
+  populateFilters();
+  renderKPIs('kpiCards', projects);
+  filterProjects();
+  // Pre-render tab2 charts in background
+  renderKPIs('statsKPI', projects);
+  setTimeout(() => {
+    buildLine(projects);
+    buildDonut(getStateCounts(projects));
+    buildBar(projects);
+    buildStacked(projects);
+    buildRadar(projects);
+    buildSummaryTable(projects);
+  }, 100);
+}
+
+document.addEventListener('DOMContentLoaded', initDashboard);
+</script>
+</body>
+</html>
+
